@@ -56,6 +56,16 @@ func TestMarshal(t *testing.T) {
 		t.Fatal("invalid cert pem bytes")
 	}
 
+	der, err := cert.MarshalDER()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(der, certDerBytes) {
+		os.WriteFile("generated", der, 0644)
+		os.WriteFile("hardcoded", certDerBytes, 0644)
+		t.Fatal("invalid cert der bytes")
+	}
+
 	pem, err = key.MarshalPKCS1PrivateKeyPEM()
 	if err != nil {
 		t.Fatal(err)
@@ -75,14 +85,14 @@ func TestMarshal(t *testing.T) {
 	}
 	_ = tls_key
 
-	der, err := key.MarshalPKCS1PrivateKeyDER()
+	pkcs1Der, err := key.MarshalPKCS1PrivateKeyDER()
 	if err != nil {
 		t.Fatal(err)
 	}
 	tls_der := x509.MarshalPKCS1PrivateKey(tls_key)
-	if !bytes.Equal(der, tls_der) {
+	if !bytes.Equal(pkcs1Der, tls_der) {
 		t.Fatalf("invalid private key der bytes: %s\n v.s. %s\n",
-			hex.Dump(der), hex.Dump(tls_der))
+			hex.Dump(pkcs1Der), hex.Dump(tls_der))
 	}
 
 	der, err = key.MarshalPKIXPublicKeyDER()
