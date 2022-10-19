@@ -1,4 +1,4 @@
-module github.com/libp2p/go-openssl
+module github.com/pexip/go-openssl
 
 require (
 	github.com/mattn/go-pointer v0.0.1
