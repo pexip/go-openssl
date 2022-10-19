@@ -1,20 +1,10 @@
-⚠️⚠️⚠️
-
-**Status:** Archived and not maintained. Please see https://github.com/libp2p/go-openssl/issues/41 for details.
-
-⚠️⚠️⚠️
-
 # OpenSSL bindings for Go
 
-Forked from https://github.com/spacemonkeygo/openssl (unmaintained) to add:
-
-1. FreeBSD support.
-2. Key equality checking.
-3. A function to get the size of signatures produced by a key.
+Forked from https://github.com/libp2p/openssl (archived)
 
 ---
 
-Please see http://godoc.org/github.com/libp2p/go-openssl for more info
+Please see http://godoc.org/github.com/pexip/go-openssl for more info
 
 ---
 
