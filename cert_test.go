@@ -15,6 +15,7 @@
 package openssl
 
 import (
+	"bytes"
 	"math/big"
 	"testing"
 	"time"
@@ -160,5 +161,20 @@ func TestCertVersion(t *testing.T) {
 	}
 	if vers := cert.GetVersion(); vers != X509_V3 {
 		t.Fatalf("bad version: %d", vers)
+	}
+}
+
+func TestCertGetFingerprint(t *testing.T) {
+	cert, err := LoadCertificateFromPEM(certBytes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fingerprint, err := cert.ComputeFingerprint(EVP_SHA256)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected := []byte{0xB6, 0x7B, 0xF8, 0x11, 0x69, 0x86, 0x40, 0x4C, 0x17, 0x87, 0x70, 0x98, 0xA2, 0x99, 0x2A, 0x30, 0xB7, 0x7D, 0x0B, 0x6F, 0x3B, 0x5F, 0x53, 0x13, 0x40, 0xAF, 0xA2, 0x78, 0x04, 0x95, 0x5A, 0x69}
+	if bytes.Compare(fingerprint, expected) != 0 {
+		t.Fatal("Invalid fingerprint")
 	}
 }
