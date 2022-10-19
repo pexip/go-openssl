@@ -386,6 +386,19 @@ func (c *Certificate) MarshalPEM() (pem_block []byte, err error) {
 	return io.ReadAll(asAnyBio(bio))
 }
 
+// MarshalDER converts the X509 certificate to DER-encoded format
+func (c *Certificate) MarshalDER() (der_block []byte, err error) {
+	bio := C.BIO_new(C.BIO_s_mem())
+	if bio == nil {
+		return nil, errors.New("failed to allocate memory BIO")
+	}
+	defer C.BIO_free(bio)
+	if int(C.i2d_X509_bio(bio, c.x)) != 1 {
+		return nil, errors.New("failed dumping certificate")
+	}
+	return io.ReadAll(asAnyBio(bio))
+}
+
 // PublicKey returns the public key embedded in the X509 certificate.
 func (c *Certificate) PublicKey() (PublicKey, error) {
 	pkey := C.X509_get_pubkey(c.x)
