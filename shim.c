@@ -220,6 +220,14 @@ int X_PEM_write_bio_PrivateKey_traditional(BIO *bio, EVP_PKEY *key, const EVP_CI
 	return PEM_write_bio_PrivateKey_traditional(bio, key, enc, kstr, klen, cb, u);
 }
 
+int X_SSL_CTX_set_min_proto_version(SSL_CTX *ctx, int version) {
+	return SSL_CTX_set_min_proto_version(ctx, version);
+}
+
+int X_SSL_CTX_set_max_proto_version(SSL_CTX *ctx, int version) {
+	return SSL_CTX_set_max_proto_version(ctx, version);
+}
+
 #endif
 
 /*
@@ -364,6 +372,14 @@ int X_PEM_write_bio_PrivateKey_traditional(BIO *bio, EVP_PKEY *key, const EVP_CI
 		pem_type_str, bio, key, enc, kstr, klen, cb, u);
 }
 
+int X_SSL_CTX_set_min_proto_version(SSL_CTX *ctx, int version) {
+	return 1;
+}
+
+int X_SSL_CTX_set_max_proto_version(SSL_CTX *ctx, int version) {
+	return 1;
+}
+
 #endif
 
 /*
@@ -473,14 +489,6 @@ const SSL_METHOD *X_TLSv1_2_method() {
 
 int X_SSL_CTX_new_index() {
 	return SSL_CTX_get_ex_new_index(0, NULL, NULL, NULL, NULL);
-}
-
-int X_SSL_CTX_set_min_proto_version(SSL_CTX *ctx, int version) {
-	return SSL_CTX_set_min_proto_version(ctx, version);
-}
-
-int X_SSL_CTX_set_max_proto_version(SSL_CTX *ctx, int version) {
-	return SSL_CTX_set_max_proto_version(ctx, version);
 }
 
 long X_SSL_CTX_set_options(SSL_CTX* ctx, long options) {
