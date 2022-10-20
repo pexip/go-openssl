@@ -45,6 +45,13 @@ extern int X_shim_init();
 extern void X_OPENSSL_free(void *ref);
 extern void *X_OPENSSL_malloc(size_t size);
 
+/* TLS v1.3 shim */
+#if OPENSSL_VERSION_NUMBER < 0x1010000fL
+#define X_TLS1_3_VERSION 0x0304
+#else
+#define X_TLS1_3_VERSION TLS1_3_VERSION
+#endif
+
 /* SSL methods */
 extern long X_SSL_set_options(SSL* ssl, long options);
 extern long X_SSL_get_options(SSL* ssl);
