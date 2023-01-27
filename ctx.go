@@ -27,13 +27,11 @@ import (
 	"unsafe"
 
 	"github.com/mattn/go-pointer"
-	"github.com/spacemonkeygo/spacelog"
+	log "github.com/sirupsen/logrus"
 )
 
 var (
 	ssl_ctx_idx = C.X_SSL_CTX_new_index()
-
-	logger = spacelog.GetLogger()
 )
 
 type Ctx struct {
@@ -452,8 +450,7 @@ type VerifyCallback func(ok bool, store *CertificateStoreCtx) bool
 func go_ssl_ctx_verify_cb_thunk(p unsafe.Pointer, ok C.int, ctx *C.X509_STORE_CTX) C.int {
 	defer func() {
 		if err := recover(); err != nil {
-			logger.Critf("openssl: verify callback panic'd: %v", err)
-			os.Exit(1)
+			log.Panicf("openssl: verify callback panic'd: %v", err)
 		}
 	}()
 	verify_cb := pointer.Restore(p).(*Ctx).verify_cb
