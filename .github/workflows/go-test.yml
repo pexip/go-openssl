@@ -60,9 +60,11 @@ jobs:
           run: go test -v -race ./...
       - name: Collect coverage files
         shell: bash
+        if: false
         run: echo "COVERAGES=$(find . -type f -name 'module-coverage.txt' | tr -s '\n' ',' | sed 's/,$//')" >> $GITHUB_ENV
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@81cd2dc8148241f03f5839d295e000b8f761e378 # v3.1.0
+        if: false
         with:
           files: '${{ env.COVERAGES }}'
           env_vars: OS=${{ matrix.os }}, GO=${{ matrix.go }}
