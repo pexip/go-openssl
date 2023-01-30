@@ -23,6 +23,8 @@ import (
 	"reflect"
 	"sync"
 	"unsafe"
+
+	log "github.com/sirupsen/logrus"
 )
 
 const (
@@ -68,7 +70,7 @@ func bioSetRetryRead(b *C.BIO) {
 func go_write_bio_write(b *C.BIO, data *C.char, size C.int) (rc C.int) {
 	defer func() {
 		if err := recover(); err != nil {
-			logger.Critf("openssl: writeBioWrite panic'd: %v", err)
+			log.Fatalf("openssl: writeBioWrite panic'd: %v", err)
 			rc = -1
 		}
 	}()
@@ -88,7 +90,7 @@ func go_write_bio_ctrl(b *C.BIO, cmd C.int, arg1 C.long, arg2 unsafe.Pointer) (
 	rc C.long) {
 	defer func() {
 		if err := recover(); err != nil {
-			logger.Critf("openssl: writeBioCtrl panic'd: %v", err)
+			log.Fatalf("openssl: writeBioCtrl panic'd: %v", err)
 			rc = -1
 		}
 	}()
@@ -169,7 +171,7 @@ func loadReadPtr(b *C.BIO) *readBio {
 func go_read_bio_read(b *C.BIO, data *C.char, size C.int) (rc C.int) {
 	defer func() {
 		if err := recover(); err != nil {
-			logger.Critf("openssl: go_read_bio_read panic'd: %v", err)
+			log.Fatalf("openssl: go_read_bio_read panic'd: %v", err)
 			rc = -1
 		}
 	}()
@@ -204,7 +206,7 @@ func go_read_bio_ctrl(b *C.BIO, cmd C.int, arg1 C.long, arg2 unsafe.Pointer) (
 
 	defer func() {
 		if err := recover(); err != nil {
-			logger.Critf("openssl: readBioCtrl panic'd: %v", err)
+			log.Fatalf("openssl: readBioCtrl panic'd: %v", err)
 			rc = -1
 		}
 	}()
