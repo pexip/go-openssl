@@ -24,7 +24,7 @@ import (
 )
 
 type DH struct {
-	dh *C.struct_dh_st
+	dh *C.EVP_PKEY
 }
 
 // LoadDHParametersFromPEM loads the Diffie-Hellman parameters from
@@ -33,31 +33,49 @@ func LoadDHParametersFromPEM(pem_block []byte) (*DH, error) {
 	if len(pem_block) == 0 {
 		return nil, errors.New("empty pem block")
 	}
-	bio := C.BIO_new_mem_buf(unsafe.Pointer(&pem_block[0]),
-		C.int(len(pem_block)))
+
+	bio := C.BIO_new_mem_buf(unsafe.Pointer(&pem_block[0]), C.int(len(pem_block)))
 	if bio == nil {
 		return nil, errors.New("failed creating bio")
 	}
 	defer C.BIO_free(bio)
 
-	params := C.PEM_read_bio_DHparams(bio, nil, nil, nil)
-	if params == nil {
-		return nil, errors.New("failed reading dh parameters")
+	var data *C.uchar
+	dataLength := C.long(0)
+
+	cDhParam := C.CString("DH PARAMETERS")
+	defer C.free(unsafe.Pointer(cDhParam))
+
+	if int(C.PEM_bytes_read_bio(
+		&data, &dataLength, nil, cDhParam, bio, nil, nil,
+	)) != 1 {
+		return nil, errorFromErrorQueue()
 	}
+
+	// take a copy of data pointer because d2i_KeyParams manipulates the data pointer
+	p := data
+	params := C.d2i_KeyParams(C.EVP_PKEY_DH, nil, &p, dataLength)
+	cfile := C.CString("LoadDHParametersFromPEM")
+	defer C.free(unsafe.Pointer(cfile))
+	C.CRYPTO_free(unsafe.Pointer(data), cfile, 0)
+	if params == nil {
+		return nil, errorFromErrorQueue()
+	}
+
 	dhparams := &DH{dh: params}
 	runtime.SetFinalizer(dhparams, func(dhparams *DH) {
-		C.DH_free(dhparams.dh)
+		C.EVP_PKEY_free(dhparams.dh)
 	})
 	return dhparams, nil
 }
 
 // SetDHParameters sets the DH group (DH parameters) used to
-// negotiate an emphemeral DH key during handshaking.
+// negotiate an ephemeral DH key during handshaking.
 func (c *Ctx) SetDHParameters(dh *DH) error {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
-	if int(C.X_SSL_CTX_set_tmp_dh(c.ctx, dh.dh)) != 1 {
+	if int(C.SSL_CTX_set0_tmp_dh_pkey(c.ctx, dh.dh)) != 1 {
 		return errorFromErrorQueue()
 	}
 	return nil

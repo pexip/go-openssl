@@ -91,8 +91,6 @@ extern long X_SSL_CTX_add_extra_chain_cert(SSL_CTX* ctx, X509 *cert);
 extern long X_SSL_CTX_set_ecdh_auto(SSL_CTX* ctx, int onoff);
 extern long X_SSL_CTX_set_tlsext_servername_callback(SSL_CTX* ctx, int (*cb)(SSL *con, int *ad, void *args));
 extern int X_SSL_CTX_verify_cb(int ok, X509_STORE_CTX* store);
-extern long X_SSL_CTX_set_tmp_dh(SSL_CTX* ctx, DH *dh);
-extern long X_PEM_read_DHparams(SSL_CTX* ctx, DH *dh);
 extern int X_SSL_CTX_set_tlsext_ticket_key_cb(SSL_CTX *sslctx,
         int (*cb)(SSL *s, unsigned char key_name[16],
                   unsigned char iv[EVP_MAX_IV_LENGTH],

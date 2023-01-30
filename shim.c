@@ -557,14 +557,6 @@ int X_SSL_CTX_verify_cb(int ok, X509_STORE_CTX* store) {
 	return go_ssl_ctx_verify_cb_thunk(p, ok, store);
 }
 
-long X_SSL_CTX_set_tmp_dh(SSL_CTX* ctx, DH *dh) {
-    return SSL_CTX_set_tmp_dh(ctx, dh);
-}
-
-long X_PEM_read_DHparams(SSL_CTX* ctx, DH *dh) {
-    return SSL_CTX_set_tmp_dh(ctx, dh);
-}
-
 int X_SSL_CTX_set_tlsext_ticket_key_cb(SSL_CTX *sslctx,
         int (*cb)(SSL *s, unsigned char key_name[16],
                   unsigned char iv[EVP_MAX_IV_LENGTH],
