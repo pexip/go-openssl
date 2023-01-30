@@ -535,8 +535,12 @@ long X_SSL_CTX_add_extra_chain_cert(SSL_CTX* ctx, X509 *cert) {
 	return SSL_CTX_add_extra_chain_cert(ctx, cert);
 }
 
-long X_SSL_CTX_set_tmp_ecdh(SSL_CTX* ctx, EC_KEY *key) {
-	return SSL_CTX_set_tmp_ecdh(ctx, key);
+long X_SSL_CTX_set_ecdh_auto(SSL_CTX* ctx, int onoff) {
+	return SSL_CTX_set_ecdh_auto(ctx, onoff);
+}
+
+int X_SSL_CTX_set1_curves(SSL_CTX *ctx, int *clist, int clistlen) {
+    return SSL_CTX_set1_curves(ctx, clist, clistlen);
 }
 
 long X_SSL_CTX_set_tlsext_servername_callback(

@@ -186,16 +186,10 @@ func (c *Ctx) SetEllipticCurve(curve EllipticCurve) error {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
-	k := C.EC_KEY_new_by_curve_name(C.int(curve))
-	if k == nil {
-		return errors.New("unknown curve")
-	}
-	defer C.EC_KEY_free(k)
-
-	if int(C.X_SSL_CTX_set_tmp_ecdh(c.ctx, k)) != 1 {
+	clist := C.int(curve)
+	if int(C.X_SSL_CTX_set1_curves(c.ctx, &clist, 1)) != 1 {
 		return errorFromErrorQueue()
 	}
-
 	return nil
 }
 
