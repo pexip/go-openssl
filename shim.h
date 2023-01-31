@@ -156,14 +156,6 @@ extern const EVP_CIPHER *X_EVP_CIPHER_CTX_cipher(EVP_CIPHER_CTX *ctx);
 extern int X_EVP_CIPHER_CTX_encrypting(const EVP_CIPHER_CTX *ctx);
 extern int X_EVP_PKEY_CTX_set_ec_paramgen_curve_nid(EVP_PKEY_CTX *ctx, int nid);
 
-/* HMAC methods */
-extern size_t X_HMAC_size(const HMAC_CTX *e);
-extern HMAC_CTX *X_HMAC_CTX_new(void);
-extern void X_HMAC_CTX_free(HMAC_CTX *ctx);
-extern int X_HMAC_Init_ex(HMAC_CTX *ctx, const void *key, int len, const EVP_MD *md, ENGINE *impl);
-extern int X_HMAC_Update(HMAC_CTX *ctx, const unsigned char *data, size_t len);
-extern int X_HMAC_Final(HMAC_CTX *ctx, unsigned char *md, unsigned int *len);
-
 /* X509 methods */
 extern int X_X509_add_ref(X509* x509);
 extern const ASN1_TIME *X_X509_get0_notBefore(const X509 *x);

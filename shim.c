@@ -200,14 +200,6 @@ const ASN1_TIME *X_X509_get0_notAfter(const X509 *x) {
 	return X509_get0_notAfter(x);
 }
 
-HMAC_CTX *X_HMAC_CTX_new(void) {
-	return HMAC_CTX_new();
-}
-
-void X_HMAC_CTX_free(HMAC_CTX *ctx) {
-	HMAC_CTX_free(ctx);
-}
-
 int X_PEM_write_bio_PrivateKey_traditional(BIO *bio, EVP_PKEY *key, const EVP_CIPHER *enc, unsigned char *kstr, int klen, pem_password_cb *cb, void *u) {
 	return PEM_write_bio_PrivateKey_traditional(bio, key, enc, kstr, klen, cb, u);
 }
@@ -310,24 +302,6 @@ const EVP_MD *X_EVP_sha() {
 
 int X_EVP_CIPHER_CTX_encrypting(const EVP_CIPHER_CTX *ctx) {
 	return ctx->encrypt;
-}
-
-HMAC_CTX *X_HMAC_CTX_new(void) {
-	/* v1.1.0 uses a OPENSSL_zalloc to allocate the memory which does not exist
-	 * in previous versions. malloc+memset to get the same behavior */
-	HMAC_CTX *ctx = (HMAC_CTX *)OPENSSL_malloc(sizeof(HMAC_CTX));
-	if (ctx) {
-		memset(ctx, 0, sizeof(HMAC_CTX));
-		HMAC_CTX_init(ctx);
-	}
-	return ctx;
-}
-
-void X_HMAC_CTX_free(HMAC_CTX *ctx) {
-	if (ctx) {
-		HMAC_CTX_cleanup(ctx);
-		OPENSSL_free(ctx);
-	}
 }
 
 int X_PEM_write_bio_PrivateKey_traditional(BIO *bio, EVP_PKEY *key, const EVP_CIPHER *enc, unsigned char *kstr, int klen, pem_password_cb *cb, void *u) {
@@ -715,22 +689,6 @@ const EVP_CIPHER *X_EVP_CIPHER_CTX_cipher(EVP_CIPHER_CTX *ctx) {
 
 int X_EVP_PKEY_CTX_set_ec_paramgen_curve_nid(EVP_PKEY_CTX *ctx, int nid) {
 	return EVP_PKEY_CTX_set_ec_paramgen_curve_nid(ctx, nid);
-}
-
-size_t X_HMAC_size(const HMAC_CTX *e) {
-	return HMAC_size(e);
-}
-
-int X_HMAC_Init_ex(HMAC_CTX *ctx, const void *key, int len, const EVP_MD *md, ENGINE *impl) {
-	return HMAC_Init_ex(ctx, key, len, md, impl);
-}
-
-int X_HMAC_Update(HMAC_CTX *ctx, const unsigned char *data, size_t len) {
-	return HMAC_Update(ctx, data, len);
-}
-
-int X_HMAC_Final(HMAC_CTX *ctx, unsigned char *md, unsigned int *len) {
-	return HMAC_Final(ctx, md, len);
 }
 
 int X_sk_X509_num(STACK_OF(X509) *sk) {
