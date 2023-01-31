@@ -14,66 +14,14 @@
 
 package openssl
 
-// #include "shim.h"
-import "C"
+type MD5Hash = digestJob
 
-import (
-	"errors"
-	"runtime"
-	"unsafe"
-)
-
-type MD5Hash struct {
-	ctx    *C.EVP_MD_CTX
-	engine *Engine
-}
-
-func NewMD5Hash() (*MD5Hash, error) { return NewMD5HashWithEngine(nil) }
-
-func NewMD5HashWithEngine(e *Engine) (*MD5Hash, error) {
-	hash := &MD5Hash{engine: e}
-	hash.ctx = C.X_EVP_MD_CTX_new()
-	if hash.ctx == nil {
-		return nil, errors.New("openssl: md5: unable to allocate ctx")
-	}
-	runtime.SetFinalizer(hash, func(hash *MD5Hash) { hash.Close() })
-	if err := hash.Reset(); err != nil {
+func NewMD5Hash() (*MD5Hash, error) {
+	digest, err := GetDigestByName("md5", false)
+	if err != nil {
 		return nil, err
 	}
-	return hash, nil
-}
-
-func (s *MD5Hash) Close() {
-	if s.ctx != nil {
-		C.X_EVP_MD_CTX_free(s.ctx)
-		s.ctx = nil
-	}
-}
-
-func (s *MD5Hash) Reset() error {
-	if C.X_EVP_DigestInit_ex(s.ctx, C.X_EVP_md5(), engineRef(s.engine)) != 1 {
-		return errors.New("openssl: md5: cannot init digest ctx")
-	}
-	return nil
-}
-
-func (s *MD5Hash) Write(p []byte) (n int, err error) {
-	if len(p) == 0 {
-		return 0, nil
-	}
-	if C.X_EVP_DigestUpdate(s.ctx, unsafe.Pointer(&p[0]),
-		C.size_t(len(p))) != 1 {
-		return 0, errors.New("openssl: md5: cannot update digest")
-	}
-	return len(p), nil
-}
-
-func (s *MD5Hash) Sum() (result [16]byte, err error) {
-	if C.X_EVP_DigestFinal_ex(s.ctx,
-		(*C.uchar)(unsafe.Pointer(&result[0])), nil) != 1 {
-		return result, errors.New("openssl: md5: cannot finalize ctx")
-	}
-	return result, s.Reset()
+	return newDigestJob(*digest)
 }
 
 func MD5(data []byte) (result [16]byte, err error) {
@@ -82,8 +30,12 @@ func MD5(data []byte) (result [16]byte, err error) {
 		return result, err
 	}
 	defer hash.Close()
-	if _, err := hash.Write(data); err != nil {
+	if err = hash.Update(data); err != nil {
 		return result, err
 	}
-	return hash.Sum()
+	resultBuffer, err := hash.Sum()
+	if err != nil {
+		return result, err
+	}
+	return *(*[16]byte)(resultBuffer), err
 }

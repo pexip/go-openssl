@@ -133,8 +133,8 @@ func (key *pKey) BaseType() NID {
 
 func (key *pKey) SignPKCS1v15(method Method, data []byte) ([]byte, error) {
 
-	ctx := C.X_EVP_MD_CTX_new()
-	defer C.X_EVP_MD_CTX_free(ctx)
+	ctx := C.EVP_MD_CTX_new()
+	defer C.EVP_MD_CTX_free(ctx)
 
 	if key.KeyType() == KeyTypeED25519 {
 		// do ED specific one-shot sign
@@ -180,8 +180,8 @@ func (key *pKey) SignPKCS1v15(method Method, data []byte) ([]byte, error) {
 }
 
 func (key *pKey) VerifyPKCS1v15(method Method, data, sig []byte) error {
-	ctx := C.X_EVP_MD_CTX_new()
-	defer C.X_EVP_MD_CTX_free(ctx)
+	ctx := C.EVP_MD_CTX_new()
+	defer C.EVP_MD_CTX_free(ctx)
 
 	if len(sig) == 0 {
 		return errors.New("verifypkcs1v15: 0-length sig")

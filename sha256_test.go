@@ -15,6 +15,7 @@
 package openssl
 
 import (
+	"bytes"
 	"crypto/rand"
 	"crypto/sha256"
 	"io"
@@ -64,15 +65,15 @@ func TestSHA256Writer(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		var got, exp [32]byte
+		var got []byte
 
-		hash.Sum(exp[:0])
-		got, err := ohash.Sum()
+		exp := hash.Sum(make([]byte, 0))
+		got, err = ohash.Sum()
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		if got != exp {
+		if !bytes.Equal(got, exp) {
 			t.Fatalf("exp:%x got:%x", exp, got)
 		}
 	}

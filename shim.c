@@ -112,14 +112,6 @@ void* X_BIO_get_data(BIO* bio) {
 	return BIO_get_data(bio);
 }
 
-EVP_MD_CTX* X_EVP_MD_CTX_new() {
-	return EVP_MD_CTX_new();
-}
-
-void X_EVP_MD_CTX_free(EVP_MD_CTX* ctx) {
-	EVP_MD_CTX_free(ctx);
-}
-
 static int x_bio_create(BIO *b) {
 	BIO_set_shutdown(b, 1);
 	BIO_set_init(b, 1);
@@ -289,14 +281,6 @@ void X_BIO_set_data(BIO* bio, void* data) {
 
 void* X_BIO_get_data(BIO* bio) {
 	return bio->ptr;
-}
-
-EVP_MD_CTX* X_EVP_MD_CTX_new() {
-	return EVP_MD_CTX_create();
-}
-
-void X_EVP_MD_CTX_free(EVP_MD_CTX* ctx) {
-	EVP_MD_CTX_destroy(ctx);
 }
 
 int X_X509_add_ref(X509* x509) {
@@ -602,10 +586,6 @@ BIO *X_BIO_new_read_bio() {
 	return BIO_new(BIO_s_readBio());
 }
 
-const EVP_MD *X_EVP_get_digestbyname(const char *name) {
-	return EVP_get_digestbyname(name);
-}
-
 const EVP_MD *X_EVP_md_null() {
 	return EVP_md_null();
 }
@@ -644,18 +624,6 @@ const EVP_MD *X_EVP_sha512() {
 
 int X_EVP_MD_size(const EVP_MD *md) {
 	return EVP_MD_size(md);
-}
-
-int X_EVP_DigestInit_ex(EVP_MD_CTX *ctx, const EVP_MD *type, ENGINE *impl) {
-	return EVP_DigestInit_ex(ctx, type, impl);
-}
-
-int X_EVP_DigestUpdate(EVP_MD_CTX *ctx, const void *d, size_t cnt) {
-	return EVP_DigestUpdate(ctx, d, cnt);
-}
-
-int X_EVP_DigestFinal_ex(EVP_MD_CTX *ctx, unsigned char *md, unsigned int *s) {
-	return EVP_DigestFinal_ex(ctx, md, s);
 }
 
 int X_EVP_SignInit(EVP_MD_CTX *ctx, const EVP_MD *type) {

@@ -14,66 +14,14 @@
 
 package openssl
 
-// #include "shim.h"
-import "C"
+type SHA256Hash = digestJob
 
-import (
-	"errors"
-	"runtime"
-	"unsafe"
-)
-
-type SHA256Hash struct {
-	ctx    *C.EVP_MD_CTX
-	engine *Engine
-}
-
-func NewSHA256Hash() (*SHA256Hash, error) { return NewSHA256HashWithEngine(nil) }
-
-func NewSHA256HashWithEngine(e *Engine) (*SHA256Hash, error) {
-	hash := &SHA256Hash{engine: e}
-	hash.ctx = C.X_EVP_MD_CTX_new()
-	if hash.ctx == nil {
-		return nil, errors.New("openssl: sha256: unable to allocate ctx")
-	}
-	runtime.SetFinalizer(hash, func(hash *SHA256Hash) { hash.Close() })
-	if err := hash.Reset(); err != nil {
+func NewSHA256Hash() (*SHA256Hash, error) {
+	digest, err := GetDigestByName("sha256", false)
+	if err != nil {
 		return nil, err
 	}
-	return hash, nil
-}
-
-func (s *SHA256Hash) Close() {
-	if s.ctx != nil {
-		C.X_EVP_MD_CTX_free(s.ctx)
-		s.ctx = nil
-	}
-}
-
-func (s *SHA256Hash) Reset() error {
-	if C.X_EVP_DigestInit_ex(s.ctx, C.X_EVP_sha256(), engineRef(s.engine)) != 1 {
-		return errors.New("openssl: sha256: cannot init digest ctx")
-	}
-	return nil
-}
-
-func (s *SHA256Hash) Write(p []byte) (n int, err error) {
-	if len(p) == 0 {
-		return 0, nil
-	}
-	if C.X_EVP_DigestUpdate(s.ctx, unsafe.Pointer(&p[0]),
-		C.size_t(len(p))) != 1 {
-		return 0, errors.New("openssl: sha256: cannot update digest")
-	}
-	return len(p), nil
-}
-
-func (s *SHA256Hash) Sum() (result [32]byte, err error) {
-	if C.X_EVP_DigestFinal_ex(s.ctx,
-		(*C.uchar)(unsafe.Pointer(&result[0])), nil) != 1 {
-		return result, errors.New("openssl: sha256: cannot finalize ctx")
-	}
-	return result, s.Reset()
+	return newDigestJob(*digest)
 }
 
 func SHA256(data []byte) (result [32]byte, err error) {
@@ -85,5 +33,9 @@ func SHA256(data []byte) (result [32]byte, err error) {
 	if _, err := hash.Write(data); err != nil {
 		return result, err
 	}
-	return hash.Sum()
+	resultBuffer, err := hash.Sum()
+	if err != nil {
+		return result, err
+	}
+	return *(*[32]byte)(resultBuffer), nil
 }
