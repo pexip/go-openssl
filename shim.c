@@ -184,10 +184,6 @@ const EVP_MD *X_EVP_sha() {
 	return NULL;
 }
 
-int X_EVP_CIPHER_CTX_encrypting(const EVP_CIPHER_CTX *ctx) {
-	return EVP_CIPHER_CTX_encrypting(ctx);
-}
-
 int X_X509_add_ref(X509* x509) {
 	return X509_up_ref(x509);
 }
@@ -298,10 +294,6 @@ const EVP_MD *X_EVP_dss1() {
 
 const EVP_MD *X_EVP_sha() {
 	return EVP_sha();
-}
-
-int X_EVP_CIPHER_CTX_encrypting(const EVP_CIPHER_CTX *ctx) {
-	return ctx->encrypt;
 }
 
 int X_PEM_write_bio_PrivateKey_traditional(BIO *bio, EVP_PKEY *key, const EVP_CIPHER *enc, unsigned char *kstr, int klen, pem_password_cb *cb, void *u) {
@@ -647,44 +639,6 @@ int X_EVP_VerifyUpdate(EVP_MD_CTX *ctx, const void *d,
 
 int X_EVP_VerifyFinal(EVP_MD_CTX *ctx, const unsigned char *sigbuf, unsigned int siglen, EVP_PKEY *pkey) {
 	return EVP_VerifyFinal(ctx, sigbuf, siglen, pkey);
-}
-
-int X_EVP_CIPHER_block_size(EVP_CIPHER *c) {
-    return EVP_CIPHER_block_size(c);
-}
-
-int X_EVP_CIPHER_key_length(EVP_CIPHER *c) {
-    return EVP_CIPHER_key_length(c);
-}
-
-int X_EVP_CIPHER_iv_length(EVP_CIPHER *c) {
-    return EVP_CIPHER_iv_length(c);
-}
-
-int X_EVP_CIPHER_nid(EVP_CIPHER *c) {
-    return EVP_CIPHER_nid(c);
-}
-
-int X_EVP_CIPHER_CTX_block_size(EVP_CIPHER_CTX *ctx) {
-    return EVP_CIPHER_CTX_block_size(ctx);
-}
-
-int X_EVP_CIPHER_CTX_key_length(EVP_CIPHER_CTX *ctx) {
-    return EVP_CIPHER_CTX_key_length(ctx);
-}
-
-int X_EVP_CIPHER_CTX_iv_length(EVP_CIPHER_CTX *ctx) {
-    return EVP_CIPHER_CTX_iv_length(ctx);
-}
-
-void X_EVP_CIPHER_CTX_set_padding(EVP_CIPHER_CTX *ctx, int padding) {
-    //openssl always returns 1 for set_padding
-    //hence return value is not checked
-    EVP_CIPHER_CTX_set_padding(ctx, padding);
-}
-
-const EVP_CIPHER *X_EVP_CIPHER_CTX_cipher(EVP_CIPHER_CTX *ctx) {
-    return EVP_CIPHER_CTX_cipher(ctx);
 }
 
 int X_EVP_PKEY_CTX_set_ec_paramgen_curve_nid(EVP_PKEY_CTX *ctx, int nid) {

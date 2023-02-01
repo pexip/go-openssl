@@ -18,6 +18,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <openssl/core_names.h>
 #include <openssl/bio.h>
 #include <openssl/crypto.h>
 #include <openssl/dh.h>
@@ -144,16 +145,6 @@ extern int X_EVP_VerifyUpdate(EVP_MD_CTX *ctx, const void *d, unsigned int cnt);
 extern int X_EVP_VerifyFinal(EVP_MD_CTX *ctx, const unsigned char *sigbuf, unsigned int siglen, EVP_PKEY *pkey);
 extern int X_EVP_DigestVerifyInit(EVP_MD_CTX *ctx, EVP_PKEY_CTX **pctx, const EVP_MD *type, ENGINE *e, EVP_PKEY *pkey);
 extern int X_EVP_DigestVerify(EVP_MD_CTX *ctx, const unsigned char *sigret, size_t siglen, const unsigned char *tbs, size_t tbslen);
-extern int X_EVP_CIPHER_block_size(EVP_CIPHER *c);
-extern int X_EVP_CIPHER_key_length(EVP_CIPHER *c);
-extern int X_EVP_CIPHER_iv_length(EVP_CIPHER *c);
-extern int X_EVP_CIPHER_nid(EVP_CIPHER *c);
-extern int X_EVP_CIPHER_CTX_block_size(EVP_CIPHER_CTX *ctx);
-extern int X_EVP_CIPHER_CTX_key_length(EVP_CIPHER_CTX *ctx);
-extern int X_EVP_CIPHER_CTX_iv_length(EVP_CIPHER_CTX *ctx);
-extern void X_EVP_CIPHER_CTX_set_padding(EVP_CIPHER_CTX *ctx, int padding);
-extern const EVP_CIPHER *X_EVP_CIPHER_CTX_cipher(EVP_CIPHER_CTX *ctx);
-extern int X_EVP_CIPHER_CTX_encrypting(const EVP_CIPHER_CTX *ctx);
 extern int X_EVP_PKEY_CTX_set_ec_paramgen_curve_nid(EVP_PKEY_CTX *ctx, int nid);
 
 /* X509 methods */
