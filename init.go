@@ -111,10 +111,12 @@ func errorFromErrorQueue() error {
 		if err == 0 {
 			break
 		}
-		errs = append(errs, fmt.Sprintf("%s:%s:%s",
+		errs = append(errs, fmt.Sprintf("%s::%s",
 			C.GoString(C.ERR_lib_error_string(err)),
-			C.GoString(C.ERR_func_error_string(err)),
 			C.GoString(C.ERR_reason_error_string(err))))
+	}
+	if len(errs) == 0 {
+		return fmt.Errorf("SSL error")
 	}
 	return fmt.Errorf("SSL errors: %s", strings.Join(errs, "\n"))
 }
