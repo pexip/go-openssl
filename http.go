@@ -29,13 +29,13 @@ func ListenAndServeTLS(addr string, cert_file string, key_file string,
 // ServerListenAndServeTLS will take an http.Server and serve it using OpenSSL
 // configured to use the provided cert and key files.
 func ServerListenAndServeTLS(srv *http.Server,
-	cert_file, key_file string) error {
+	certFile, keyFile string) error {
 	addr := srv.Addr
 	if addr == "" {
 		addr = ":https"
 	}
 
-	ctx, err := NewCtxFromFiles(cert_file, key_file)
+	ctx, err := NewCtxFromFiles(certFile, keyFile)
 	if err != nil {
 		return err
 	}
