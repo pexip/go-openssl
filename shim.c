@@ -325,12 +325,6 @@ int X_SSL_CTX_set_max_proto_version(SSL_CTX *ctx, int version) {
 int X_shim_init() {
 	int rc = 0;
 
-	OPENSSL_config(NULL);
-	ENGINE_load_builtin_engines();
-	SSL_load_error_strings();
-	SSL_library_init();
-	OpenSSL_add_all_algorithms();
-	//
 	// Set up OPENSSL thread safety callbacks.
 	rc = go_init_locks();
 	if (rc != 0) {
@@ -368,13 +362,13 @@ long X_SSL_clear_options(SSL* ssl, long options) {
 }
 
 long X_SSL_set_tlsext_host_name(SSL *ssl, const char *name) {
-   return SSL_set_tlsext_host_name(ssl, name);
+	return SSL_set_tlsext_host_name(ssl, name);
 }
 const char * X_SSL_get_cipher_name(const SSL *ssl) {
-   return SSL_get_cipher_name(ssl);
+	return SSL_get_cipher_name(ssl);
 }
 int X_SSL_session_reused(SSL *ssl) {
-    return SSL_session_reused(ssl);
+	return SSL_session_reused(ssl);
 }
 
 int X_SSL_new_index() {
@@ -430,7 +424,7 @@ long X_SSL_CTX_set_ecdh_auto(SSL_CTX* ctx, int onoff) {
 }
 
 int X_SSL_CTX_set1_curves(SSL_CTX *ctx, int *clist, int clistlen) {
-    return SSL_CTX_set1_curves(ctx, clist, clistlen);
+	return SSL_CTX_set1_curves(ctx, clist, clistlen);
 }
 
 long X_SSL_CTX_set_tlsext_servername_callback(
@@ -448,10 +442,10 @@ int X_SSL_CTX_verify_cb(int ok, X509_STORE_CTX* store) {
 }
 
 int X_SSL_CTX_set_tlsext_ticket_key_cb(SSL_CTX *sslctx,
-        int (*cb)(SSL *s, unsigned char key_name[16],
-                  unsigned char iv[EVP_MAX_IV_LENGTH],
-                  EVP_CIPHER_CTX *ctx, HMAC_CTX *hctx, int enc)) {
-    return SSL_CTX_set_tlsext_ticket_key_cb(sslctx, cb);
+		int (*cb)(SSL *s, unsigned char key_name[16],
+				unsigned char iv[EVP_MAX_IV_LENGTH],
+				EVP_CIPHER_CTX *ctx, HMAC_CTX *hctx, int enc)) {
+	return SSL_CTX_set_tlsext_ticket_key_cb(sslctx, cb);
 }
 
 int X_SSL_CTX_ticket_key_cb(SSL *s, unsigned char key_name[16],
@@ -570,7 +564,7 @@ int X_sk_X509_num(STACK_OF(X509) *sk) {
 }
 
 X509 *X_sk_X509_value(STACK_OF(X509)* sk, int i) {
-   return sk_X509_value(sk, i);
+	return sk_X509_value(sk, i);
 }
 
 long X_X509_get_version(const X509 *x) {
