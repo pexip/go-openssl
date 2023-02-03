@@ -189,10 +189,6 @@ func TestGenerateEC(t *testing.T) {
 }
 
 func TestGenerateEd25519(t *testing.T) {
-	if !ed25519_support {
-		t.SkipNow()
-	}
-
 	key, err := GenerateED25519Key()
 	if err != nil {
 		t.Fatal(err)
@@ -237,12 +233,14 @@ func TestSignEC(t *testing.T) {
 		t.Run(digestName, func(t *testing.T) {
 			t.Parallel()
 			digest, err := GetDigestByName(digestName, false)
+			if err != nil {
+				t.Fatal(err)
+			}
 			sig, err := key.SignPKCS1v15(digest, data)
 			if err != nil {
 				t.Fatal(err)
 			}
-			err = key.VerifyPKCS1v15(digest, data, sig)
-			if err != nil {
+			if err = key.VerifyPKCS1v15(digest, data, sig); err != nil {
 				t.Fatal(err)
 			}
 		})
@@ -250,10 +248,6 @@ func TestSignEC(t *testing.T) {
 }
 
 func TestSignED25519(t *testing.T) {
-	if !ed25519_support {
-		t.SkipNow()
-	}
-
 	t.Parallel()
 
 	key, err := GenerateED25519Key()
@@ -390,10 +384,6 @@ func TestMarshalEC(t *testing.T) {
 }
 
 func TestMarshalEd25519(t *testing.T) {
-	if !ed25519_support {
-		t.SkipNow()
-	}
-
 	if _, err := LoadPrivateKeyFromPEM(ed25519KeyBytes); err != nil {
 		t.Fatal(err)
 	}

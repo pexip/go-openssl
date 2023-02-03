@@ -31,14 +31,6 @@
 #include <openssl/ec.h>
 
 
-#ifndef SSL_MODE_RELEASE_BUFFERS
-#define SSL_MODE_RELEASE_BUFFERS 0
-#endif
-
-#ifndef SSL_OP_NO_COMPRESSION
-#define SSL_OP_NO_COMPRESSION 0
-#endif
-
 /* shim  methods */
 extern int X_shim_init();
 
@@ -91,11 +83,8 @@ extern BIO *X_BIO_new_write_bio();
 extern BIO *X_BIO_new_read_bio();
 
 /* EVP methods */
-extern const int X_ED25519_SUPPORT;
-extern int X_EVP_PKEY_ED25519;
 extern const EVP_MD *X_EVP_md_null();
 extern const EVP_MD *X_EVP_md5();
-extern const EVP_MD *X_EVP_md4();
 extern const EVP_MD *X_EVP_sha();
 extern const EVP_MD *X_EVP_sha1();
 extern const EVP_MD *X_EVP_dss();
@@ -105,24 +94,6 @@ extern const EVP_MD *X_EVP_sha224();
 extern const EVP_MD *X_EVP_sha256();
 extern const EVP_MD *X_EVP_sha384();
 extern const EVP_MD *X_EVP_sha512();
-extern int X_EVP_MD_size(const EVP_MD *md);
-extern int X_EVP_SignInit(EVP_MD_CTX *ctx, const EVP_MD *type);
-extern int X_EVP_SignUpdate(EVP_MD_CTX *ctx, const void *d, unsigned int cnt);
-extern int X_EVP_DigestSignInit(EVP_MD_CTX *ctx, EVP_PKEY_CTX **pctx, const EVP_MD *type, ENGINE *e, EVP_PKEY *pkey);
-extern int X_EVP_DigestSign(EVP_MD_CTX *ctx, unsigned char *sigret, size_t *siglen, const unsigned char *tbs, size_t tbslen);
-extern EVP_PKEY *X_EVP_PKEY_new(void);
-extern void X_EVP_PKEY_free(EVP_PKEY *pkey);
-extern int X_EVP_PKEY_size(EVP_PKEY *pkey);
-extern struct rsa_st *X_EVP_PKEY_get1_RSA(EVP_PKEY *pkey);
-extern int X_EVP_PKEY_set1_RSA(EVP_PKEY *pkey, struct rsa_st *key);
-extern int X_EVP_PKEY_assign_charp(EVP_PKEY *pkey, int type, char *key);
-extern int X_EVP_SignFinal(EVP_MD_CTX *ctx, unsigned char *md, unsigned int *s, EVP_PKEY *pkey);
-extern int X_EVP_VerifyInit(EVP_MD_CTX *ctx, const EVP_MD *type);
-extern int X_EVP_VerifyUpdate(EVP_MD_CTX *ctx, const void *d, unsigned int cnt);
-extern int X_EVP_VerifyFinal(EVP_MD_CTX *ctx, const unsigned char *sigbuf, unsigned int siglen, EVP_PKEY *pkey);
-extern int X_EVP_DigestVerifyInit(EVP_MD_CTX *ctx, EVP_PKEY_CTX **pctx, const EVP_MD *type, ENGINE *e, EVP_PKEY *pkey);
-extern int X_EVP_DigestVerify(EVP_MD_CTX *ctx, const unsigned char *sigret, size_t siglen, const unsigned char *tbs, size_t tbslen);
-extern int X_EVP_PKEY_CTX_set_ec_paramgen_curve_nid(EVP_PKEY_CTX *ctx, int nid);
 
 /* X509 methods */
 extern int X_X509_add_ref(X509* x509);
@@ -133,12 +104,12 @@ extern X509 *X_sk_X509_value(STACK_OF(X509)* sk, int i);
 extern long X_X509_get_version(const X509 *x);
 extern int X_X509_set_version(X509 *x, long version);
 
-/* PEM methods */
-extern int X_PEM_write_bio_PrivateKey_traditional(BIO *bio, EVP_PKEY *key, const EVP_CIPHER *enc, unsigned char *kstr, int klen, pem_password_cb *cb, void *u);
-
 /* Object methods */
 extern int OBJ_create(const char *oid,const char *sn,const char *ln);
 
 /* Extension helper method */
 extern const unsigned char * get_extention(X509 *x, int NID, int *data_len);
 extern int add_custom_ext(X509 *cert, int nid, char *value, int len);
+
+/* BigNum methods */
+extern int X_BN_num_bytes(const BIGNUM *a);

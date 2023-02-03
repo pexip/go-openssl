@@ -40,65 +40,6 @@ static int go_write_bio_puts(BIO *b, const char *str) {
 
 /*
  ************************************************
- * v1.1.1 and later implementation
- ************************************************
- */
-#if OPENSSL_VERSION_NUMBER >= 0x1010100fL
-
-const int X_ED25519_SUPPORT = 1;
-int X_EVP_PKEY_ED25519 = EVP_PKEY_ED25519;
-
-int X_EVP_DigestSignInit(EVP_MD_CTX *ctx, EVP_PKEY_CTX **pctx,
-		const EVP_MD *type, ENGINE *e, EVP_PKEY *pkey){
-	return EVP_DigestSignInit(ctx, pctx, type, e, pkey);
-}
-
-int X_EVP_DigestSign(EVP_MD_CTX *ctx, unsigned char *sigret,
-		size_t *siglen, const unsigned char *tbs, size_t tbslen) {
-	return EVP_DigestSign(ctx, sigret, siglen, tbs, tbslen);
-}
-
-
-int X_EVP_DigestVerifyInit(EVP_MD_CTX *ctx, EVP_PKEY_CTX **pctx,
-		const EVP_MD *type, ENGINE *e, EVP_PKEY *pkey){
-	return EVP_DigestVerifyInit(ctx, pctx, type, e, pkey);
-}
-
-int X_EVP_DigestVerify(EVP_MD_CTX *ctx, const unsigned char *sigret,
-		size_t siglen, const unsigned char *tbs, size_t tbslen){
-	return EVP_DigestVerify(ctx, sigret, siglen, tbs, tbslen);
-}
-
-#else
-
-const int X_ED25519_SUPPORT = 0;
-int X_EVP_PKEY_ED25519 = EVP_PKEY_NONE;
-
-int X_EVP_DigestSignInit(EVP_MD_CTX *ctx, EVP_PKEY_CTX **pctx,
-		const EVP_MD *type, ENGINE *e, EVP_PKEY *pkey){
-	return 0;
-}
-
-int X_EVP_DigestSign(EVP_MD_CTX *ctx, unsigned char *sigret,
-		size_t *siglen, const unsigned char *tbs, size_t tbslen) {
-	return 0;
-}
-
-
-int X_EVP_DigestVerifyInit(EVP_MD_CTX *ctx, EVP_PKEY_CTX **pctx,
-		const EVP_MD *type, ENGINE *e, EVP_PKEY *pkey){
-	return 0;
-}
-
-int X_EVP_DigestVerify(EVP_MD_CTX *ctx, const unsigned char *sigret,
-		size_t siglen, const unsigned char *tbs, size_t tbslen){
-	return 0;
-}
-
-#endif
-
-/*
- ************************************************
  * v1.1.X and later implementation
  ************************************************
  */
@@ -188,10 +129,6 @@ const ASN1_TIME *X_X509_get0_notAfter(const X509 *x) {
 	return X509_get0_notAfter(x);
 }
 
-int X_PEM_write_bio_PrivateKey_traditional(BIO *bio, EVP_PKEY *key, const EVP_CIPHER *enc, unsigned char *kstr, int klen, pem_password_cb *cb, void *u) {
-	return PEM_write_bio_PrivateKey_traditional(bio, key, enc, kstr, klen, cb, u);
-}
-
 int X_SSL_CTX_set_min_proto_version(SSL_CTX *ctx, int version) {
 	return SSL_CTX_set_min_proto_version(ctx, version);
 }
@@ -278,32 +215,6 @@ const EVP_MD *X_EVP_dss1() {
 
 const EVP_MD *X_EVP_sha() {
 	return EVP_sha();
-}
-
-int X_PEM_write_bio_PrivateKey_traditional(BIO *bio, EVP_PKEY *key, const EVP_CIPHER *enc, unsigned char *kstr, int klen, pem_password_cb *cb, void *u) {
-	/* PEM_write_bio_PrivateKey always tries to use the PKCS8 format if it
-	 * is available, instead of using the "traditional" format as stated in the
-	 * OpenSSL man page.
-	 * i2d_PrivateKey should give us the correct DER encoding, so we'll just
-	 * use PEM_ASN1_write_bio directly to write the DER encoding with the correct
-	 * type header. */
-
-	int ppkey_id, pkey_base_id, ppkey_flags;
-	const char *pinfo, *ppem_str;
-	char pem_type_str[80];
-
-	// Lookup the ASN1 method information to get the pem type
-	if (EVP_PKEY_asn1_get0_info(&ppkey_id, &pkey_base_id, &ppkey_flags, &pinfo, &ppem_str, key->ameth) != 1) {
-		return 0;
-	}
-	// Set up the PEM type string
-	if (BIO_snprintf(pem_type_str, 80, "%s PRIVATE KEY", ppem_str) <= 0) {
-		// Failed to write out the pem type string, something is really wrong.
-		return 0;
-	}
-	// Write out everything to the BIO
-	return PEM_ASN1_write_bio((i2d_of_void *)i2d_PrivateKey,
-		pem_type_str, bio, key, enc, kstr, klen, cb, u);
 }
 
 int X_SSL_CTX_set_min_proto_version(SSL_CTX *ctx, int version) {
@@ -474,10 +385,6 @@ const EVP_MD *X_EVP_md5() {
 	return EVP_md5();
 }
 
-const EVP_MD *X_EVP_md4() {
-	return EVP_md4();
-}
-
 const EVP_MD *X_EVP_ripemd160() {
 	return EVP_ripemd160();
 }
@@ -502,63 +409,6 @@ const EVP_MD *X_EVP_sha512() {
 	return EVP_sha512();
 }
 
-int X_EVP_MD_size(const EVP_MD *md) {
-	return EVP_MD_size(md);
-}
-
-int X_EVP_SignInit(EVP_MD_CTX *ctx, const EVP_MD *type) {
-	return EVP_SignInit(ctx, type);
-}
-
-int X_EVP_SignUpdate(EVP_MD_CTX *ctx, const void *d, unsigned int cnt) {
-	return EVP_SignUpdate(ctx, d, cnt);
-}
-
-EVP_PKEY *X_EVP_PKEY_new(void) {
-	return EVP_PKEY_new();
-}
-
-void X_EVP_PKEY_free(EVP_PKEY *pkey) {
-	EVP_PKEY_free(pkey);
-}
-
-int X_EVP_PKEY_size(EVP_PKEY *pkey) {
-	return EVP_PKEY_size(pkey);
-}
-
-struct rsa_st *X_EVP_PKEY_get1_RSA(EVP_PKEY *pkey) {
-	return EVP_PKEY_get1_RSA(pkey);
-}
-
-int X_EVP_PKEY_set1_RSA(EVP_PKEY *pkey, struct rsa_st *key) {
-	return EVP_PKEY_set1_RSA(pkey, key);
-}
-
-int X_EVP_PKEY_assign_charp(EVP_PKEY *pkey, int type, char *key) {
-	return EVP_PKEY_assign(pkey, type, key);
-}
-
-int X_EVP_SignFinal(EVP_MD_CTX *ctx, unsigned char *md, unsigned int *s, EVP_PKEY *pkey) {
-	return EVP_SignFinal(ctx, md, s, pkey);
-}
-
-int X_EVP_VerifyInit(EVP_MD_CTX *ctx, const EVP_MD *type) {
-	return EVP_VerifyInit(ctx, type);
-}
-
-int X_EVP_VerifyUpdate(EVP_MD_CTX *ctx, const void *d,
-		unsigned int cnt) {
-	return EVP_VerifyUpdate(ctx, d, cnt);
-}
-
-int X_EVP_VerifyFinal(EVP_MD_CTX *ctx, const unsigned char *sigbuf, unsigned int siglen, EVP_PKEY *pkey) {
-	return EVP_VerifyFinal(ctx, sigbuf, siglen, pkey);
-}
-
-int X_EVP_PKEY_CTX_set_ec_paramgen_curve_nid(EVP_PKEY_CTX *ctx, int nid) {
-	return EVP_PKEY_CTX_set_ec_paramgen_curve_nid(ctx, nid);
-}
-
 int X_sk_X509_num(STACK_OF(X509) *sk) {
 	return sk_X509_num(sk);
 }
@@ -573,4 +423,8 @@ long X_X509_get_version(const X509 *x) {
 
 int X_X509_set_version(X509 *x, long version) {
 	return X509_set_version(x, version);
+}
+
+int X_BN_num_bytes(const BIGNUM *a) {
+	return BN_num_bytes(a);
 }
