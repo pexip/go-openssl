@@ -104,14 +104,6 @@ int X_EVP_DigestVerify(EVP_MD_CTX *ctx, const unsigned char *sigret,
  */
 #if OPENSSL_VERSION_NUMBER >= 0x1010000fL
 
-void X_BIO_set_data(BIO* bio, void* data) {
-	BIO_set_data(bio, data);
-}
-
-void* X_BIO_get_data(BIO* bio) {
-	return BIO_get_data(bio);
-}
-
 static int x_bio_create(BIO *b) {
 	BIO_set_shutdown(b, 1);
 	BIO_set_init(b, 1);
@@ -261,14 +253,6 @@ static BIO_METHOD* BIO_s_readBio() { return &readBioMethod; }
 int x_bio_init_methods() {
 	/* statically initialized above */
 	return 0;
-}
-
-void X_BIO_set_data(BIO* bio, void* data) {
-	bio->ptr = data;
-}
-
-void* X_BIO_get_data(BIO* bio) {
-	return bio->ptr;
 }
 
 int X_X509_add_ref(X509* x509) {
@@ -478,26 +462,6 @@ int X_SSL_CTX_ticket_key_cb(SSL *s, unsigned char key_name[16],
 	void* p = SSL_CTX_get_ex_data(ssl_ctx, get_ssl_ctx_idx());
 	// get the pointer to the go Ctx object and pass it back into the thunk
 	return go_ticket_key_cb_thunk(p, s, key_name, iv, cctx, hctx, enc);
-}
-
-int X_BIO_get_flags(BIO *b) {
-	return BIO_get_flags(b);
-}
-
-void X_BIO_set_flags(BIO *b, int flags) {
-	return BIO_set_flags(b, flags);
-}
-
-void X_BIO_clear_flags(BIO *b, int flags) {
-	BIO_clear_flags(b, flags);
-}
-
-int X_BIO_read(BIO *b, void *buf, int len) {
-	return BIO_read(b, buf, len);
-}
-
-int X_BIO_write(BIO *b, const void *buf, int len) {
-	return BIO_write(b, buf, len);
 }
 
 BIO *X_BIO_new_write_bio() {

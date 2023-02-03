@@ -87,13 +87,6 @@ extern int SSL_CTX_set_alpn_protos(SSL_CTX *ctx, const unsigned char *protos,
                              unsigned int protos_len);
 
 /* BIO methods */
-extern int X_BIO_get_flags(BIO *b);
-extern void X_BIO_set_flags(BIO *bio, int flags);
-extern void X_BIO_clear_flags(BIO *bio, int flags);
-extern void X_BIO_set_data(BIO *bio, void* data);
-extern void *X_BIO_get_data(BIO *bio);
-extern int X_BIO_read(BIO *b, void *buf, int len);
-extern int X_BIO_write(BIO *b, const void *buf, int len);
 extern BIO *X_BIO_new_write_bio();
 extern BIO *X_BIO_new_read_bio();
 

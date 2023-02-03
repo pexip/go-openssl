@@ -120,8 +120,8 @@ func newConn(conn net.Conn, ctx *Ctx) (*Conn, error) {
 	from_ssl := &writeBio{}
 
 	if ctx.GetMode()&ReleaseBuffers > 0 {
-		into_ssl.release_buffers = true
-		from_ssl.release_buffers = true
+		into_ssl.releaseBuffers = true
+		from_ssl.releaseBuffers = true
 	}
 
 	into_ssl_cbio := into_ssl.MakeCBIO()

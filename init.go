@@ -93,7 +93,9 @@ import "C"
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
+	"unsafe"
 )
 
 func init() {
@@ -119,4 +121,17 @@ func errorFromErrorQueue() error {
 		return fmt.Errorf("SSL error")
 	}
 	return fmt.Errorf("SSL errors: %s", strings.Join(errs, "\n"))
+}
+
+func nonCopyGoBytes(ptr uintptr, length int) []byte {
+	var slice []byte
+	header := (*reflect.SliceHeader)(unsafe.Pointer(&slice))
+	header.Cap = length
+	header.Len = length
+	header.Data = ptr
+	return slice
+}
+
+func nonCopyCString(data *C.char, size C.int) []byte {
+	return nonCopyGoBytes(uintptr(unsafe.Pointer(data)), int(size))
 }
