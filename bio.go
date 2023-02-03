@@ -20,6 +20,7 @@ import "C"
 import (
 	"errors"
 	"io"
+	"runtime"
 	"sync"
 	"unsafe"
 
@@ -30,7 +31,10 @@ const (
 	SSLRecordSize = 16 * 1024
 )
 
-var writeBioMapping = newMapping()
+var (
+	ErrCreateBio    = errors.New("failed to allocate BIO")
+	writeBioMapping = newMapping()
+)
 
 type writeBio struct {
 	dataMtx        sync.Mutex
@@ -187,8 +191,7 @@ func go_read_bio_read(b *C.BIO, data *C.char, size C.int) (rc C.int) {
 }
 
 //export go_read_bio_ctrl
-func go_read_bio_ctrl(b *C.BIO, cmd C.int, arg1 C.long, arg2 unsafe.Pointer) (
-	rc C.long) {
+func go_read_bio_ctrl(b *C.BIO, cmd C.int, arg1 C.long, arg2 unsafe.Pointer) (rc C.long) {
 
 	defer func() {
 		if err := recover(); err != nil {
@@ -290,4 +293,33 @@ func (b *anyBio) Write(buf []byte) (written int, err error) {
 		return n, errors.New("BIO write failed")
 	}
 	return n, nil
+}
+
+type Bio struct {
+	ptr *C.BIO
+}
+
+func newBio(data []byte) (*Bio, error) {
+	var osslBio *C.BIO
+	if data == nil {
+		osslBio = C.BIO_new(C.BIO_s_mem())
+	} else {
+		osslBio = C.BIO_new_mem_buf(unsafe.Pointer(&data[0]), C.int(len(data)))
+	}
+
+	if osslBio == nil {
+		return nil, ErrCreateBio
+	}
+	bio := &Bio{ptr: osslBio}
+	runtime.SetFinalizer(bio, func(b *Bio) {
+		if b.ptr != nil {
+			C.BIO_free(b.ptr)
+			b.ptr = nil
+		}
+	})
+	return bio, nil
+}
+
+func (b *Bio) asAnyBio() *anyBio {
+	return asAnyBio(b.ptr)
 }
