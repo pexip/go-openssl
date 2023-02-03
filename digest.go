@@ -128,6 +128,30 @@ func (d *digestJob) Sum() ([]byte, error) {
 	return d.Final()
 }
 
+// SignFinal finalises the digest job, signs it with the given pkey and returns the signature
+func (d *digestJob) SignFinal(key *pKey) ([]byte, error) {
+	d.finished = true
+	var finalWritten C.uint
+	result := make([]byte, C.EVP_PKEY_get_size(key.key))
+	if C.EVP_SignFinal(
+		d.ctx, (*C.uchar)(unsafe.Pointer(&result[0])), &finalWritten, key.key,
+	) != 1 {
+		return nil, errorFromErrorQueue()
+	}
+	return result[:finalWritten], nil
+}
+
+// VerifyFinal finalises the digest job, verifies it with the provided signature/pkey
+func (d *digestJob) VerifyFinal(signature []byte, key *pKey) error {
+	d.finished = true
+	if C.EVP_VerifyFinal(
+		d.ctx, (*C.uchar)(unsafe.Pointer(&signature[0])), C.uint(len(signature)), key.key,
+	) != 1 {
+		return errorFromErrorQueue()
+	}
+	return nil
+}
+
 func DigestRequiresLegacyProvider(algorithm string) bool {
 	_, exists := legacyMD[strings.ToLower(algorithm)]
 	return exists
