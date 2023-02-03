@@ -129,7 +129,7 @@ func go_ticket_key_cb_thunk(p unsafe.Pointer, s *C.SSL, key_name *C.uchar,
 	}()
 
 	ctx := pointer.Restore(p).(*Ctx)
-	store := ctx.ticket_store
+	store := ctx.ticketStore
 	if store == nil {
 		// TODO(jeff): should this be an error condition? it doesn't make sense
 		// to be called if we don't have a store I believe, but that's probably
@@ -138,8 +138,8 @@ func go_ticket_key_cb_thunk(p unsafe.Pointer, s *C.SSL, key_name *C.uchar,
 		return ticket_resp_requireHandshake
 	}
 
-	ctx.ticket_store_mu.Lock()
-	defer ctx.ticket_store_mu.Unlock()
+	ctx.ticketStoreMu.Lock()
+	defer ctx.ticketStoreMu.Unlock()
 
 	switch enc {
 	case ticket_req_newSession:
@@ -212,7 +212,7 @@ func go_ticket_key_cb_thunk(p unsafe.Pointer, s *C.SSL, key_name *C.uchar,
 // SetTicketStore sets the ticket store for the context so that clients can do
 // ticket based session resumption. If the store is nil, the
 func (c *Ctx) SetTicketStore(store *TicketStore) {
-	c.ticket_store = store
+	c.ticketStore = store
 
 	if store == nil {
 		C.X_SSL_CTX_set_tlsext_ticket_key_cb(c.ctx, nil)

@@ -46,13 +46,6 @@ extern int X_shim_init();
 extern void X_OPENSSL_free(void *ref);
 extern void *X_OPENSSL_malloc(size_t size);
 
-/* TLS v1.3 shim */
-#if OPENSSL_VERSION_NUMBER < 0x1010000fL
-#define X_TLS1_3_VERSION 0x0304
-#else
-#define X_TLS1_3_VERSION TLS1_3_VERSION
-#endif
-
 /* SSL methods */
 extern long X_SSL_set_options(SSL* ssl, long options);
 extern long X_SSL_get_options(SSL* ssl);
@@ -61,12 +54,6 @@ extern long X_SSL_set_tlsext_host_name(SSL *ssl, const char *name);
 extern const char * X_SSL_get_cipher_name(const SSL *ssl);
 extern int X_SSL_session_reused(SSL *ssl);
 extern int X_SSL_new_index();
-
-extern const SSL_METHOD *X_SSLv23_method();
-extern const SSL_METHOD *X_SSLv3_method();
-extern const SSL_METHOD *X_TLSv1_method();
-extern const SSL_METHOD *X_TLSv1_1_method();
-extern const SSL_METHOD *X_TLSv1_2_method();
 
 #if defined SSL_CTRL_SET_TLSEXT_HOSTNAME
 extern int sni_cb(SSL *ssl_conn, int *ad, void *arg);
@@ -77,9 +64,6 @@ extern int X_SSL_verify_cb(int ok, X509_STORE_CTX* store);
 extern int X_SSL_CTX_new_index();
 extern int X_SSL_CTX_set_min_proto_version(SSL_CTX *ctx, int version);
 extern int X_SSL_CTX_set_max_proto_version(SSL_CTX *ctx, int version);
-extern long X_SSL_CTX_set_options(SSL_CTX* ctx, long options);
-extern long X_SSL_CTX_clear_options(SSL_CTX* ctx, long options);
-extern long X_SSL_CTX_get_options(SSL_CTX* ctx);
 extern long X_SSL_CTX_set_mode(SSL_CTX* ctx, long modes);
 extern long X_SSL_CTX_get_mode(SSL_CTX* ctx);
 extern long X_SSL_CTX_set_session_cache_mode(SSL_CTX* ctx, long modes);

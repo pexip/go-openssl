@@ -35,14 +35,14 @@ func TestCtxTimeoutOption(t *testing.T) {
 
 func TestCtxSessCacheSizeOption(t *testing.T) {
 	ctx, _ := NewCtx()
-	oldSize1 := ctx.SessGetCacheSize()
+	oldSize1 := ctx.GetSessionCacheSize()
 	newSize1 := oldSize1 + 42
-	oldSize2 := ctx.SessSetCacheSize(newSize1)
-	newSize2 := ctx.SessGetCacheSize()
+	oldSize2 := ctx.SetSessionCacheSize(newSize1)
+	newSize2 := ctx.GetSessionCacheSize()
 	if oldSize1 != oldSize2 {
-		t.Error("SessSetCacheSize() returns something undocumented")
+		t.Error("SetSessionCacheSize() returns something undocumented")
 	}
 	if newSize1 != newSize2 {
-		t.Error("SessSetCacheSize() does not save anything to ctx")
+		t.Error("SetSessionCacheSize() does not save anything to ctx")
 	}
 }
