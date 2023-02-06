@@ -15,6 +15,7 @@
 package openssl
 
 // #include <openssl/evp.h>
+// #include <openssl/rsa.h>
 // #include <openssl/pem.h>
 // #include <openssl/x509v3.h>
 import "C"
@@ -387,6 +388,11 @@ type PrivateKeyParamGenerationContext interface {
 	Generate() (PrivateKey, error)
 	SetECParamGenCurveNID(curve EllipticCurve) error
 }
+type PrivateKeyDeriveContext interface {
+	PrivateKeyContext
+	SetPeer(peer PublicKey) error
+	Derive() ([]byte, error)
+}
 
 type pkeyCtx struct {
 	ctx   *C.EVP_PKEY_CTX
@@ -396,6 +402,9 @@ type pkeyGenCtx struct {
 	pkeyCtx
 }
 type pkeyParamGenCtx struct {
+	pkeyCtx
+}
+type pkeyDeriveCtx struct {
 	pkeyCtx
 }
 
@@ -439,6 +448,26 @@ func (p *pkeyParamGenCtx) Generate() (PrivateKey, error) {
 
 func (p *pkeyGenCtx) Generate() (PrivateKey, error) {
 	return p.generate()
+}
+
+func (p *pkeyDeriveCtx) SetPeer(peer PublicKey) error {
+	if int(C.EVP_PKEY_derive_set_peer(p.ctx, peer.evpPKey())) != 1 {
+		return errorFromErrorQueue()
+	}
+	return nil
+}
+func (p *pkeyDeriveCtx) Derive() ([]byte, error) {
+	var bufferLen C.size_t
+	if int(C.EVP_PKEY_derive(p.ctx, nil, &bufferLen)) != 1 {
+		return nil, errorFromErrorQueue()
+	}
+	buffer := make([]byte, bufferLen)
+	if int(C.EVP_PKEY_derive(
+		p.ctx, (*C.uchar)(unsafe.Pointer(&buffer[0])), &bufferLen),
+	) != 1 {
+		return nil, errorFromErrorQueue()
+	}
+	return buffer[:bufferLen], nil
 }
 
 func newPKeyContextFromKey(key PrivateKey) (*pkeyCtx, error) {
@@ -493,6 +522,17 @@ func NewPKeyParamGenerationCtx(keyID KeyType) (PrivateKeyParamGenerationContext,
 		return nil, errorFromErrorQueue()
 	}
 	return &pkeyParamGenCtx{*ctx}, nil
+}
+
+func NewPKeyDeriveContextFromKey(key PrivateKey) (PrivateKeyDeriveContext, error) {
+	ctx, err := newPKeyContextFromKey(key)
+	if err != nil {
+		return nil, err
+	}
+	if int(C.EVP_PKEY_derive_init(ctx.evpCtx())) != 1 {
+		return nil, errorFromErrorQueue()
+	}
+	return &pkeyDeriveCtx{*ctx}, nil
 }
 
 // GenerateRSAKey generates a new RSA private key with an exponent of 3.
