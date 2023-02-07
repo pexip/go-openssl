@@ -26,6 +26,9 @@ jobs:
         run: |
           go version
           go env
+      - name: OpenSSL versions
+        if: ${{ startsWith(matrix.os, 'ubuntu') }}
+        run: dpkg -l | egrep '\s+(libssl|openssl)'
       - name: Use msys2 on windows
         if: ${{ startsWith(matrix.os, 'windows') }}
         shell: bash
