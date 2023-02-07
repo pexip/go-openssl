@@ -320,7 +320,7 @@ func (c *Conn) PeerCertificate() (*Certificate, error) {
 	if c.is_shutdown {
 		return nil, errors.New("connection closed")
 	}
-	x := C.SSL_get_peer_certificate(c.ssl)
+	x := C.SSL_get1_peer_certificate(c.ssl)
 	if x == nil {
 		return nil, errors.New("no peer certificate found")
 	}
