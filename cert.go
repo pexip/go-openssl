@@ -448,19 +448,13 @@ func (c *Certificate) GetExtensionValue(nid NID) []byte {
 }
 
 // ComputeFingerprint compute the fingerprint of the cert using the provided digest
-func (c *Certificate) ComputeFingerprint(digest EVP_MD) ([]byte, error) {
+func (c *Certificate) ComputeFingerprint(digest *Digest) ([]byte, error) {
 	// Allocate a buffer
-	md := C.X_OPENSSL_malloc(C.EVP_MAX_MD_SIZE)
-	if md == nil {
-		return nil, errors.New("failed allocating buffer for shared secret")
-	}
-	defer C.X_OPENSSL_free(md)
+	buf := make([]byte, C.EVP_MAX_MD_SIZE)
 
 	dataLength := C.uint(0)
-	digestFunc := getDigestFunction(digest)
-	if int(C.X509_digest(c.x, digestFunc, (*C.uchar)(md), &dataLength)) != 1 {
+	if int(C.X509_digest(c.x, digest.ptr, (*C.uchar)(unsafe.Pointer(&buf[0])), &dataLength)) != 1 {
 		return nil, errors.New("failed to compute fingerprint")
 	}
-	fingerprint := C.GoBytes(unsafe.Pointer(md), C.int(dataLength))
-	return fingerprint, nil
+	return buf[:dataLength], nil
 }
