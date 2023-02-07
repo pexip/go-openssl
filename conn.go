@@ -19,7 +19,6 @@ import "C"
 
 import (
 	"errors"
-	"fmt"
 	"io"
 	"net"
 	"runtime"
@@ -571,7 +570,7 @@ func (c *Conn) VerifyResult() VerifyResult {
 }
 
 func (c *Conn) SessionReused() bool {
-	return C.X_SSL_session_reused(c.ssl) == 1
+	return C.SSL_session_reused(c.ssl) == 1
 }
 
 func (c *Conn) GetSession() ([]byte, error) {
@@ -609,13 +608,13 @@ func (c *Conn) setSession(session []byte) error {
 	ptr := (*C.uchar)(&session[0])
 	s := C.d2i_SSL_SESSION(nil, &ptr, C.long(len(session)))
 	if s == nil {
-		return fmt.Errorf("unable to load session: %s", errorFromErrorQueue())
+		return errorFromErrorQueue()
 	}
 	defer C.SSL_SESSION_free(s)
 
 	ret := C.SSL_set_session(c.ssl, s)
 	if ret != 1 {
-		return fmt.Errorf("unable to set session: %s", errorFromErrorQueue())
+		return errorFromErrorQueue()
 	}
 	return nil
 }

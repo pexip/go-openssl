@@ -76,26 +76,26 @@ func (s *SSL) GetServername() string {
 // GetOptions returns SSL options. See
 // https://www.openssl.org/docs/ssl/SSL_CTX_set_options.html
 func (s *SSL) GetOptions() Options {
-	return Options(C.X_SSL_get_options(s.ssl))
+	return Options(C.SSL_get_options(s.ssl))
 }
 
 // SetOptions sets SSL options. See
 // https://www.openssl.org/docs/ssl/SSL_CTX_set_options.html
 func (s *SSL) SetOptions(options Options) Options {
-	return Options(C.X_SSL_set_options(s.ssl, C.long(options)))
+	return Options(C.SSL_set_options(s.ssl, C.uint64_t(options)))
 }
 
 // ClearOptions clear SSL options. See
 // https://www.openssl.org/docs/ssl/SSL_CTX_set_options.html
 func (s *SSL) ClearOptions(options Options) Options {
-	return Options(C.X_SSL_clear_options(s.ssl, C.long(options)))
+	return Options(C.SSL_clear_options(s.ssl, C.uint64_t(options)))
 }
 
 // SetVerify controls peer verification settings. See
 // http://www.openssl.org/docs/ssl/SSL_CTX_set_verify.html
-func (s *SSL) SetVerify(options VerifyOptions, verify_cb VerifyCallback) {
-	s.verifyCb = verify_cb
-	if verify_cb != nil {
+func (s *SSL) SetVerify(options VerifyOptions, verifyCb VerifyCallback) {
+	s.verifyCb = verifyCb
+	if verifyCb != nil {
 		C.SSL_set_verify(s.ssl, C.int(options), (*[0]byte)(C.X_SSL_verify_cb))
 	} else {
 		C.SSL_set_verify(s.ssl, C.int(options), nil)

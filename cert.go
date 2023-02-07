@@ -93,8 +93,7 @@ func (n *Name) AddTextEntry(field, value string) error {
 	defer C.free(unsafe.Pointer(cfield))
 	cvalue := (*C.uchar)(unsafe.Pointer(C.CString(value)))
 	defer C.free(unsafe.Pointer(cvalue))
-	ret := C.X509_NAME_add_entry_by_txt(
-		n.name, cfield, C.MBSTRING_ASC, cvalue, -1, -1, 0)
+	ret := C.X509_NAME_add_entry_by_txt(n.name, cfield, C.MBSTRING_ASC, cvalue, -1, -1, 0)
 	if ret != 1 {
 		return errors.New("failed to add x509 name text entry")
 	}
@@ -118,10 +117,13 @@ func (n *Name) GetEntry(nid NID) (entry string, ok bool) {
 	if entrylen == -1 {
 		return "", false
 	}
-	buf := (*C.char)(C.malloc(C.size_t(entrylen + 1)))
-	defer C.free(unsafe.Pointer(buf))
-	C.X509_NAME_get_text_by_NID(n.name, C.int(nid), buf, entrylen+1)
-	return C.GoStringN(buf, entrylen), true
+	buf := make([]byte, entrylen+1) // +1 for null terminating byte
+	if int(C.X509_NAME_get_text_by_NID(
+		n.name, C.int(nid), (*C.char)(unsafe.Pointer(&buf[0])), C.int(len(buf)),
+	)) < 0 {
+		return "", false
+	}
+	return string(buf[:entrylen]), true
 }
 
 // NewCertificate generates a basic certificate based
@@ -233,7 +235,7 @@ func (c *Certificate) SetSerial(serial *big.Int) error {
 // SetIssueDate sets the certificate issue date relative to the current time.
 func (c *Certificate) SetIssueDate(when time.Duration) error {
 	offset := C.long(when / time.Second)
-	result := C.X509_gmtime_adj(C.X_X509_get0_notBefore(c.x), offset)
+	result := C.X509_gmtime_adj(C.X509_get0_notBefore(c.x), offset)
 	if result == nil {
 		return errors.New("failed to set issue date")
 	}
@@ -243,7 +245,7 @@ func (c *Certificate) SetIssueDate(when time.Duration) error {
 // SetExpireDate sets the certificate issue date relative to the current time.
 func (c *Certificate) SetExpireDate(when time.Duration) error {
 	offset := C.long(when / time.Second)
-	result := C.X509_gmtime_adj(C.X_X509_get0_notAfter(c.x), offset)
+	result := C.X509_gmtime_adj(C.X509_get0_notAfter(c.x), offset)
 	if result == nil {
 		return errors.New("failed to set expire date")
 	}
@@ -311,7 +313,7 @@ func getDigestFunction(digest EVP_MD) (md *C.EVP_MD) {
 	return md
 }
 
-// Add an extension to a certificate.
+// AddExtension Add an extension to a certificate.
 // Extension constants are NID_* as found in openssl.
 func (c *Certificate) AddExtension(nid NID, value string) error {
 	issuer := c
@@ -320,7 +322,9 @@ func (c *Certificate) AddExtension(nid NID, value string) error {
 	}
 	var ctx C.X509V3_CTX
 	C.X509V3_set_ctx(&ctx, c.x, issuer.x, nil, nil, 0)
-	ex := C.X509V3_EXT_conf_nid(nil, &ctx, C.int(nid), C.CString(value))
+	cvalue := C.CString(value)
+	defer C.free(unsafe.Pointer(cvalue))
+	ex := C.X509V3_EXT_conf_nid(nil, &ctx, C.int(nid), cvalue)
 	if ex == nil {
 		return errors.New("failed to create x509v3 extension")
 	}
@@ -331,7 +335,7 @@ func (c *Certificate) AddExtension(nid NID, value string) error {
 	return nil
 }
 
-// AddCustomExtension add custom extenstion to the certificate.
+// AddCustomExtension add custom extensions to the certificate.
 func (c *Certificate) AddCustomExtension(nid NID, value []byte) error {
 	val := (*C.char)(C.CBytes(value))
 	defer C.free(unsafe.Pointer(val))
@@ -341,7 +345,7 @@ func (c *Certificate) AddCustomExtension(nid NID, value []byte) error {
 	return nil
 }
 
-// Wraps AddExtension using a map of NID to text extension.
+// AddExtensions wraps AddExtension using a map of NID to text extension.
 // Will return without finishing if it encounters an error.
 func (c *Certificate) AddExtensions(extensions map[NID]string) error {
 	for nid, value := range extensions {
@@ -353,14 +357,13 @@ func (c *Certificate) AddExtensions(extensions map[NID]string) error {
 }
 
 // LoadCertificateFromPEM loads an X509 certificate from a PEM-encoded block.
-func LoadCertificateFromPEM(pem_block []byte) (*Certificate, error) {
-	if len(pem_block) == 0 {
+func LoadCertificateFromPEM(pemBlock []byte) (*Certificate, error) {
+	if len(pemBlock) == 0 {
 		return nil, errors.New("empty pem block")
 	}
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
-	bio := C.BIO_new_mem_buf(unsafe.Pointer(&pem_block[0]),
-		C.int(len(pem_block)))
+	bio := C.BIO_new_mem_buf(unsafe.Pointer(&pemBlock[0]), C.int(len(pemBlock)))
 	cert := C.PEM_read_bio_X509(bio, nil, nil, nil)
 	C.BIO_free(bio)
 	if cert == nil {
@@ -374,7 +377,7 @@ func LoadCertificateFromPEM(pem_block []byte) (*Certificate, error) {
 }
 
 // MarshalPEM converts the X509 certificate to PEM-encoded format
-func (c *Certificate) MarshalPEM() (pem_block []byte, err error) {
+func (c *Certificate) MarshalPEM() (pemBlock []byte, err error) {
 	bio := C.BIO_new(C.BIO_s_mem())
 	if bio == nil {
 		return nil, errors.New("failed to allocate memory BIO")
@@ -387,7 +390,7 @@ func (c *Certificate) MarshalPEM() (pem_block []byte, err error) {
 }
 
 // MarshalDER converts the X509 certificate to DER-encoded format
-func (c *Certificate) MarshalDER() (der_block []byte, err error) {
+func (c *Certificate) MarshalDER() (derBlock []byte, err error) {
 	bio := C.BIO_new(C.BIO_s_mem())
 	if bio == nil {
 		return nil, errors.New("failed to allocate memory BIO")
@@ -416,22 +419,22 @@ func (c *Certificate) PublicKey() (PublicKey, error) {
 func (c *Certificate) GetSerialNumberHex() (serial string) {
 	asn1_i := C.X509_get_serialNumber(c.x)
 	bignum := C.ASN1_INTEGER_to_BN(asn1_i, nil)
+	defer C.BN_free(bignum)
 	hex := C.BN_bn2hex(bignum)
+	defer C.X_OPENSSL_free(unsafe.Pointer(hex))
 	serial = C.GoString(hex)
-	C.BN_free(bignum)
-	C.X_OPENSSL_free(unsafe.Pointer(hex))
 	return
 }
 
 // GetVersion returns the X509 version of the certificate.
 func (c *Certificate) GetVersion() X509_Version {
-	return X509_Version(C.X_X509_get_version(c.x))
+	return X509_Version(C.X509_get_version(c.x))
 }
 
 // SetVersion sets the X509 version of the certificate.
 func (c *Certificate) SetVersion(version X509_Version) error {
 	cvers := C.long(version)
-	if C.X_X509_set_version(c.x, cvers) != 1 {
+	if C.X509_set_version(c.x, cvers) != 1 {
 		return errors.New("failed to set certificate version")
 	}
 	return nil
@@ -440,7 +443,7 @@ func (c *Certificate) SetVersion(version X509_Version) error {
 // GetExtensionValue returns the value of the given NID's extension.
 func (c *Certificate) GetExtensionValue(nid NID) []byte {
 	dataLength := C.int(0)
-	val := C.get_extention(c.x, C.int(nid), &dataLength)
+	val := C.get_extension(c.x, C.int(nid), &dataLength)
 	return C.GoBytes(unsafe.Pointer(val), dataLength)
 }
 

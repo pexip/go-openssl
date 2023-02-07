@@ -35,12 +35,6 @@ static int go_write_bio_puts(BIO *b, const char *str) {
 	return go_write_bio_write(b, (char*)str, (int)strlen(str));
 }
 
-/*
- ************************************************
- * v1.1.X and later implementation
- ************************************************
- */
-#if OPENSSL_VERSION_NUMBER >= 0x1010000fL
 
 static int x_bio_create(BIO *b) {
 	BIO_set_shutdown(b, 1);
@@ -114,115 +108,13 @@ const EVP_MD *X_EVP_sha() {
 	return NULL;
 }
 
-int X_X509_add_ref(X509* x509) {
-	return X509_up_ref(x509);
-}
-
-const ASN1_TIME *X_X509_get0_notBefore(const X509 *x) {
-	return X509_get0_notBefore(x);
-}
-
-const ASN1_TIME *X_X509_get0_notAfter(const X509 *x) {
-	return X509_get0_notAfter(x);
-}
-
-int X_SSL_CTX_set_min_proto_version(SSL_CTX *ctx, int version) {
+int X_SSL_CTX_set_min_proto_version(SSL_CTX *ctx, long version) {
 	return SSL_CTX_set_min_proto_version(ctx, version);
 }
 
-int X_SSL_CTX_set_max_proto_version(SSL_CTX *ctx, int version) {
+int X_SSL_CTX_set_max_proto_version(SSL_CTX *ctx, long version) {
 	return SSL_CTX_set_max_proto_version(ctx, version);
 }
-
-#endif
-
-/*
- ************************************************
- * v1.0.X implementation
- ************************************************
- */
-#if OPENSSL_VERSION_NUMBER < 0x1010000fL
-
-static int x_bio_create(BIO *b) {
-	b->shutdown = 1;
-	b->init = 1;
-	b->num = -1;
-	b->ptr = NULL;
-	b->flags = 0;
-	return 1;
-}
-
-static int x_bio_free(BIO *b) {
-	return 1;
-}
-
-static BIO_METHOD writeBioMethod = {
-	BIO_TYPE_SOURCE_SINK,
-	"Go Write BIO",
-	(int (*)(BIO *, const char *, int))go_write_bio_write,
-	NULL,
-	go_write_bio_puts,
-	NULL,
-	go_write_bio_ctrl,
-	x_bio_create,
-	x_bio_free,
-	NULL};
-
-static BIO_METHOD* BIO_s_writeBio() { return &writeBioMethod; }
-
-static BIO_METHOD readBioMethod = {
-	BIO_TYPE_SOURCE_SINK,
-	"Go Read BIO",
-	NULL,
-	go_read_bio_read,
-	NULL,
-	NULL,
-	go_read_bio_ctrl,
-	x_bio_create,
-	x_bio_free,
-	NULL};
-
-static BIO_METHOD* BIO_s_readBio() { return &readBioMethod; }
-
-int x_bio_init_methods() {
-	/* statically initialized above */
-	return 0;
-}
-
-int X_X509_add_ref(X509* x509) {
-	CRYPTO_add(&x509->references, 1, CRYPTO_LOCK_X509);
-	return 1;
-}
-
-const ASN1_TIME *X_X509_get0_notBefore(const X509 *x) {
-	return x->cert_info->validity->notBefore;
-}
-
-const ASN1_TIME *X_X509_get0_notAfter(const X509 *x) {
-	return x->cert_info->validity->notAfter;
-}
-
-const EVP_MD *X_EVP_dss() {
-	return EVP_dss();
-}
-
-const EVP_MD *X_EVP_dss1() {
-	return EVP_dss1();
-}
-
-const EVP_MD *X_EVP_sha() {
-	return EVP_sha();
-}
-
-int X_SSL_CTX_set_min_proto_version(SSL_CTX *ctx, int version) {
-	return 1;
-}
-
-int X_SSL_CTX_set_max_proto_version(SSL_CTX *ctx, int version) {
-	return 1;
-}
-
-#endif
 
 /*
  ************************************************
@@ -242,26 +134,11 @@ void X_OPENSSL_free(void *ref) {
 	OPENSSL_free(ref);
 }
 
-long X_SSL_set_options(SSL* ssl, long options) {
-	return SSL_set_options(ssl, options);
-}
-
-long X_SSL_get_options(SSL* ssl) {
-	return SSL_get_options(ssl);
-}
-
-long X_SSL_clear_options(SSL* ssl, long options) {
-	return SSL_clear_options(ssl, options);
-}
-
 long X_SSL_set_tlsext_host_name(SSL *ssl, const char *name) {
 	return SSL_set_tlsext_host_name(ssl, name);
 }
 const char * X_SSL_get_cipher_name(const SSL *ssl) {
 	return SSL_get_cipher_name(ssl);
-}
-int X_SSL_session_reused(SSL *ssl) {
-	return SSL_session_reused(ssl);
 }
 
 int X_SSL_new_index() {
@@ -300,20 +177,8 @@ long X_SSL_CTX_sess_get_cache_size(SSL_CTX* ctx) {
 	return SSL_CTX_sess_get_cache_size(ctx);
 }
 
-long X_SSL_CTX_set_timeout(SSL_CTX* ctx, long t) {
-	return SSL_CTX_set_timeout(ctx, t);
-}
-
-long X_SSL_CTX_get_timeout(SSL_CTX* ctx) {
-	return SSL_CTX_get_timeout(ctx);
-}
-
 long X_SSL_CTX_add_extra_chain_cert(SSL_CTX* ctx, X509 *cert) {
 	return SSL_CTX_add_extra_chain_cert(ctx, cert);
-}
-
-long X_SSL_CTX_set_ecdh_auto(SSL_CTX* ctx, int onoff) {
-	return SSL_CTX_set_ecdh_auto(ctx, onoff);
 }
 
 int X_SSL_CTX_set1_curves(SSL_CTX *ctx, int *clist, int clistlen) {
@@ -381,14 +246,6 @@ int X_sk_X509_num(STACK_OF(X509) *sk) {
 
 X509 *X_sk_X509_value(STACK_OF(X509)* sk, int i) {
 	return sk_X509_value(sk, i);
-}
-
-long X_X509_get_version(const X509 *x) {
-	return X509_get_version(x);
-}
-
-int X_X509_set_version(X509 *x, long version) {
-	return X509_set_version(x, version);
 }
 
 int X_BN_num_bytes(const BIGNUM *a) {

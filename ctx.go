@@ -288,7 +288,7 @@ func (csc *CertificateStoreCtx) GetCurrentCert() *Certificate {
 		return nil
 	}
 	// add a ref
-	if C.X_X509_add_ref(x509) != 1 {
+	if C.X509_up_ref(x509) != 1 {
 		return nil
 	}
 	cert := &Certificate{x: x509}
@@ -335,13 +335,13 @@ const (
 // SetMinProtoVersion sets the minimum supported protocol version for the Ctx.
 // http://www.openssl.org/docs/ssl/SSL_CTX_set_min_proto_version.html
 func (c *Ctx) SetMinProtoVersion(version Version) bool {
-	return C.X_SSL_CTX_set_min_proto_version(c.ctx, C.int(version)) == 1
+	return C.X_SSL_CTX_set_min_proto_version(c.ctx, C.long(version)) == 1
 }
 
 // SetMaxProtoVersion sets the maximum supported protocol version for the Ctx.
 // http://www.openssl.org/docs/ssl/SSL_CTX_set_max_proto_version.html
 func (c *Ctx) SetMaxProtoVersion(version Version) bool {
-	return C.X_SSL_CTX_set_max_proto_version(c.ctx, C.int(version)) == 1
+	return C.X_SSL_CTX_set_max_proto_version(c.ctx, C.long(version)) == 1
 }
 
 type Options int
@@ -364,11 +364,11 @@ const (
 // SetOptions sets context options. See
 // http://www.openssl.org/docs/ssl/SSL_CTX_set_options.html
 func (c *Ctx) SetOptions(options Options) Options {
-	return Options(C.SSL_CTX_set_options(c.ctx, C.ulonglong(options)))
+	return Options(C.SSL_CTX_set_options(c.ctx, C.uint64_t(options)))
 }
 
 func (c *Ctx) ClearOptions(options Options) Options {
-	return Options(C.SSL_CTX_clear_options(c.ctx, C.ulonglong(options)))
+	return Options(C.SSL_CTX_clear_options(c.ctx, C.uint64_t(options)))
 }
 
 // GetOptions returns context options. See
@@ -552,14 +552,14 @@ func (c *Ctx) SetSessionCacheMode(modes SessionCacheModes) SessionCacheModes {
 // SetTimeout sets session cache timeout. Returns previously set value.
 // See https://www.openssl.org/docs/ssl/SSL_CTX_set_timeout.html
 func (c *Ctx) SetTimeout(t time.Duration) time.Duration {
-	prev := C.X_SSL_CTX_set_timeout(c.ctx, C.long(t/time.Second))
+	prev := C.SSL_CTX_set_timeout(c.ctx, C.long(t/time.Second))
 	return time.Duration(prev) * time.Second
 }
 
 // GetTimeout gets the session cache timeout.
 // See https://www.openssl.org/docs/ssl/SSL_CTX_set_timeout.html
 func (c *Ctx) GetTimeout() time.Duration {
-	return time.Duration(C.X_SSL_CTX_get_timeout(c.ctx)) * time.Second
+	return time.Duration(C.SSL_CTX_get_timeout(c.ctx)) * time.Second
 }
 
 // SetSessionCacheSize sets the session cache size. Returns previously set value.

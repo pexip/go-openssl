@@ -17,6 +17,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <inttypes.h>
 
 #include <openssl/core_names.h>
 #include <openssl/bio.h>
@@ -38,38 +39,30 @@ extern int X_shim_init();
 extern void X_OPENSSL_free(void *ref);
 extern void *X_OPENSSL_malloc(size_t size);
 
-/* SSL methods */
-extern long X_SSL_set_options(SSL* ssl, long options);
-extern long X_SSL_get_options(SSL* ssl);
-extern long X_SSL_clear_options(SSL* ssl, long options);
+/* SSL macros */
 extern long X_SSL_set_tlsext_host_name(SSL *ssl, const char *name);
 extern const char * X_SSL_get_cipher_name(const SSL *ssl);
-extern int X_SSL_session_reused(SSL *ssl);
 extern int X_SSL_new_index();
 
-#if defined SSL_CTRL_SET_TLSEXT_HOSTNAME
+/* SSL methods */
 extern int sni_cb(SSL *ssl_conn, int *ad, void *arg);
-#endif
 extern int X_SSL_verify_cb(int ok, X509_STORE_CTX* store);
 
-/* SSL_CTX methods */
+/* SSL_CTX macros */
 extern int X_SSL_CTX_new_index();
-extern int X_SSL_CTX_set_min_proto_version(SSL_CTX *ctx, int version);
-extern int X_SSL_CTX_set_max_proto_version(SSL_CTX *ctx, int version);
+extern int X_SSL_CTX_set_min_proto_version(SSL_CTX *ctx, long version);
+extern int X_SSL_CTX_set_max_proto_version(SSL_CTX *ctx, long version);
 extern long X_SSL_CTX_set_mode(SSL_CTX* ctx, long modes);
 extern long X_SSL_CTX_get_mode(SSL_CTX* ctx);
 extern long X_SSL_CTX_set_session_cache_mode(SSL_CTX* ctx, long modes);
 extern long X_SSL_CTX_sess_set_cache_size(SSL_CTX* ctx, long t);
 extern long X_SSL_CTX_sess_get_cache_size(SSL_CTX* ctx);
-extern long X_SSL_CTX_set_timeout(SSL_CTX* ctx, long t);
-extern long X_SSL_CTX_get_timeout(SSL_CTX* ctx);
 extern int X_SSL_CTX_set1_curves(SSL_CTX *ctx, int *clist, int clistlen);
 extern long X_SSL_CTX_add_extra_chain_cert(SSL_CTX* ctx, X509 *cert);
-extern long X_SSL_CTX_set_ecdh_auto(SSL_CTX* ctx, int onoff);
 extern long X_SSL_CTX_set_tlsext_servername_callback(SSL_CTX* ctx, int (*cb)(SSL *con, int *ad, void *args));
+
+/* SSL_CTX methods */
 extern int X_SSL_CTX_verify_cb(int ok, X509_STORE_CTX* store);
-extern int SSL_CTX_set_alpn_protos(SSL_CTX *ctx, const unsigned char *protos,
-                             unsigned int protos_len);
 
 /* BIO methods */
 extern BIO *X_BIO_new_write_bio();
@@ -89,20 +82,15 @@ extern const EVP_MD *X_EVP_sha384();
 extern const EVP_MD *X_EVP_sha512();
 
 /* X509 methods */
-extern int X_X509_add_ref(X509* x509);
-extern const ASN1_TIME *X_X509_get0_notBefore(const X509 *x);
-extern const ASN1_TIME *X_X509_get0_notAfter(const X509 *x);
 extern int X_sk_X509_num(STACK_OF(X509) *sk);
 extern X509 *X_sk_X509_value(STACK_OF(X509)* sk, int i);
-extern long X_X509_get_version(const X509 *x);
-extern int X_X509_set_version(X509 *x, long version);
 
 /* Object methods */
 extern int OBJ_create(const char *oid,const char *sn,const char *ln);
 
 /* Extension helper method */
-extern const unsigned char * get_extention(X509 *x, int NID, int *data_len);
+extern const unsigned char * get_extension(X509 *x, int NID, int *data_len);
 extern int add_custom_ext(X509 *cert, int nid, char *value, int len);
 
-/* BigNum methods */
+/* BigNum macros */
 extern int X_BN_num_bytes(const BIGNUM *a);
