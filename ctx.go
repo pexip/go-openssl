@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"os"
 	"runtime"
-	"sync"
 	"time"
 	"unsafe"
 
@@ -44,9 +43,6 @@ type Ctx struct {
 	key      PrivateKey
 	verifyCb VerifyCallback
 	sniCb    TLSExtServernameCallback
-
-	ticketStoreMu sync.Mutex
-	ticketStore   *TicketStore
 }
 
 //export get_ssl_ctx_idx

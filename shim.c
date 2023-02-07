@@ -352,22 +352,6 @@ int X_SSL_CTX_verify_cb(int ok, X509_STORE_CTX* store) {
 	return go_ssl_ctx_verify_cb_thunk(p, ok, store);
 }
 
-int X_SSL_CTX_set_tlsext_ticket_key_cb(SSL_CTX *sslctx,
-		int (*cb)(SSL *s, unsigned char key_name[16],
-				unsigned char iv[EVP_MAX_IV_LENGTH],
-				EVP_CIPHER_CTX *ctx, HMAC_CTX *hctx, int enc)) {
-	return SSL_CTX_set_tlsext_ticket_key_cb(sslctx, cb);
-}
-
-int X_SSL_CTX_ticket_key_cb(SSL *s, unsigned char key_name[16],
-		unsigned char iv[EVP_MAX_IV_LENGTH],
-		EVP_CIPHER_CTX *cctx, HMAC_CTX *hctx, int enc) {
-
-	SSL_CTX* ssl_ctx = SSL_get_SSL_CTX(s);
-	void* p = SSL_CTX_get_ex_data(ssl_ctx, get_ssl_ctx_idx());
-	// get the pointer to the go Ctx object and pass it back into the thunk
-	return go_ticket_key_cb_thunk(p, s, key_name, iv, cctx, hctx, enc);
-}
 
 BIO *X_BIO_new_write_bio() {
 	return BIO_new(BIO_s_writeBio());
