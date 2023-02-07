@@ -17,7 +17,7 @@
 package openssl
 
 // #cgo linux windows freebsd openbsd solaris pkg-config: libssl libcrypto
-// #cgo CFLAGS: -Werror -Wdeprecated-declarations
+// #cgo CFLAGS: -Werror -Wdeprecated-declarations -DOPENSSL_API_COMPAT=30000 -DOPENSSL_NO_DEPRECATED=1
 // #cgo windows CFLAGS: -DWIN32_LEAN_AND_MEAN
 // #cgo darwin CFLAGS: -I/usr/local/opt/openssl@3/include -I/usr/local/opt/openssl/include
 // #cgo darwin LDFLAGS: -L/usr/local/opt/openssl@3/lib -L/usr/local/opt/openssl/lib -lssl -lcrypto
