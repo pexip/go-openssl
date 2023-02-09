@@ -28,7 +28,7 @@ var (
 	ErrUnknownDigest   = errors.New("unknown digest")
 	ErrLegacyDigest    = errors.New("legacy digest requested")
 	ErrDigestFinalised = errors.New("digest job already finalised")
-	legacyMD           = map[string]bool{"md4": true}
+	legacyMD           = map[string]struct{}{"md4": {}}
 )
 
 // Digest represents and openssl message digest.

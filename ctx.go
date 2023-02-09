@@ -51,7 +51,7 @@ func get_ssl_ctx_idx() C.int {
 }
 
 // NewCtx creates a new context. The minimum supported SSL/TLS version is inherited from
-// the library default. To change the mim/max support SSL/TLS versions, use Ctx.SetMinProtoVersion
+// the library default. To change the min/max support SSL/TLS versions, use Ctx.SetMinProtoVersion
 // and Ctx.SetMaxProtoVersion respectively.
 func NewCtx() (*Ctx, error) {
 	runtime.LockOSThread()

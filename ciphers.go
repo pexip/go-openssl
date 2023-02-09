@@ -37,7 +37,7 @@ var (
 	ErrInvalidKeyLength = errors.New("invalid key length")
 	ErrInvalidIVLength  = errors.New("invalid IV length")
 	ErrCipherFinalised  = errors.New("cipher job already finalised")
-	legacyCipher        = map[string]bool{"rc4": true}
+	legacyCipher        = map[string]struct{}{"rc4": {}}
 )
 
 func CipherRequiresLegacyProvider(algorithm string) bool {
@@ -265,7 +265,7 @@ func (j *cipherJob) update(data []byte, extraData bool) ([]byte, error) {
 
 	var out []byte = nil
 	var outPtr *C.uchar = nil
-	outl := C.int(len(out))
+	var outl C.int
 	if !extraData {
 		out = make([]byte, len(data)+j.ctx.BlockSize())
 		outPtr = (*C.uchar)(&out[0])

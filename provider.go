@@ -12,8 +12,7 @@ import (
 
 var (
 	defaultCtx          *LibraryContext = nil
-	nonFIPSCtx          *LibraryContext = nil
-	nonFIPSLegacyCtx    *LibraryContext = nil
+	nonFIPSCtxs                         = map[string]*LibraryContext{"default": nil, "legacy": nil}
 	ErrCreateLibraryCtx                 = errors.New("failed to create library context")
 	ErrProviderLoad                     = errors.New("failed to load provider")
 )
@@ -67,35 +66,27 @@ func (c *LibraryContext) finalise() {
 
 // GetNonFIPSCtx gets a non-FIPS context
 func GetNonFIPSCtx(withLegacy bool) (*LibraryContext, error) {
-	if nonFIPSCtx == nil {
-		ctx := C.OSSL_LIB_CTX_new()
-		if ctx == nil {
+	for ctxName, ctx := range nonFIPSCtxs {
+		if ctx != nil {
+			continue
+		}
+
+		osslCtx := C.OSSL_LIB_CTX_new()
+		if osslCtx == nil {
 			return nil, ErrCreateLibraryCtx
 		}
-		nonFIPSCtx = &LibraryContext{
-			ctx: ctx, providers: make(map[string]*C.OSSL_PROVIDER), mu: &sync.Mutex{},
+		ctx = &LibraryContext{
+			ctx: osslCtx, providers: make(map[string]*C.OSSL_PROVIDER), mu: &sync.Mutex{},
 		}
-		runtime.SetFinalizer(nonFIPSCtx, func(c *LibraryContext) { c.finalise() })
-		if err := nonFIPSCtx.LoadProvider("default"); err != nil {
+		runtime.SetFinalizer(ctx, func(c *LibraryContext) { c.finalise() })
+		if err := ctx.LoadProvider(ctxName); err != nil {
 			return nil, err
 		}
-	}
-	if nonFIPSLegacyCtx == nil {
-		ctx := C.OSSL_LIB_CTX_new()
-		if ctx == nil {
-			return nil, ErrCreateLibraryCtx
-		}
-		nonFIPSLegacyCtx = &LibraryContext{
-			ctx: ctx, providers: make(map[string]*C.OSSL_PROVIDER), mu: &sync.Mutex{},
-		}
-		runtime.SetFinalizer(nonFIPSLegacyCtx, func(c *LibraryContext) { c.finalise() })
-		if err := nonFIPSLegacyCtx.LoadProvider("legacy"); err != nil {
-			return nil, err
-		}
+		nonFIPSCtxs[ctxName] = ctx
 	}
 	if withLegacy {
-		return nonFIPSLegacyCtx, nil
+		return nonFIPSCtxs["legacy"], nil
 	} else {
-		return nonFIPSCtx, nil
+		return nonFIPSCtxs["default"], nil
 	}
 }
