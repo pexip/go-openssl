@@ -26,7 +26,7 @@ limitations under the License.
 
 ### Using on macOS
 1. Install [homebrew](http://brew.sh/)
-2. `$ brew install openssl` or `$ brew install openssl@1.1`
+2. `$ brew install openssl` or `$ brew install openssl@3`
 
 ### Using on Windows
 1. Install [mingw-w64](http://mingw-w64.sourceforge.net/)

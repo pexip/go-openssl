@@ -169,7 +169,11 @@ func TestCertGetFingerprint(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fingerprint, err := cert.ComputeFingerprint(EVP_SHA256)
+	digest, err := GetDigestByName("sha256", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fingerprint, err := cert.ComputeFingerprint(digest)
 	if err != nil {
 		t.Fatal(err)
 	}

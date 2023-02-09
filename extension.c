@@ -1,19 +1,17 @@
-
-
-#include <openssl/x509v3.h>
 #include <string.h>
+#include <openssl/x509v3.h>
 
-const unsigned char * get_extention(X509 *x, int NID, int *data_len){
-    int loc;
-    ASN1_OCTET_STRING *octet_str;
-    long xlen;
-    int tag, xclass;
+const unsigned char *get_extension(X509 *x, int NID, int *data_len) {
+	int loc;
+	ASN1_OCTET_STRING *octet_str;
+	long xlen;
+	int tag, xclass;
 
-    loc = X509_get_ext_by_NID( x, NID, -1);
-    X509_EXTENSION *ex = X509_get_ext(x, loc);
-    octet_str = X509_EXTENSION_get_data(ex);
+	loc = X509_get_ext_by_NID(x, NID, -1);
+	X509_EXTENSION *ex = X509_get_ext(x, loc);
+	octet_str = X509_EXTENSION_get_data(ex);
 	*data_len = octet_str->length;
-    return octet_str->data;
+	return octet_str->data;
 }
 
 // Copied from https://github.com/libtor/openssl/blob/master/demos/x509/mkcert.c#L153

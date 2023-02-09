@@ -15,6 +15,7 @@
 package openssl
 
 import (
+	"bytes"
 	"crypto/md5"
 	"crypto/rand"
 	"io"
@@ -64,15 +65,14 @@ func TestMD5Writer(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		var got, exp [16]byte
-
-		hash.Sum(exp[:0])
-		got, err := ohash.Sum()
+		var got []byte
+		exp := hash.Sum(make([]byte, 0))
+		got, err = ohash.Sum()
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		if got != exp {
+		if !bytes.Equal(got, exp) {
 			t.Fatalf("exp:%x got:%x", exp, got)
 		}
 	}

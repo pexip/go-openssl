@@ -14,7 +14,10 @@
 
 package openssl
 
-// #include "shim.h"
+// #include <openssl/evp.h>
+// #include <openssl/rsa.h>
+// #include <openssl/pem.h>
+// #include <openssl/x509v3.h>
 import "C"
 
 import (
@@ -24,57 +27,53 @@ import (
 	"unsafe"
 )
 
-var ( // some (effectively) constants for tests to refer to
-	ed25519_support = C.X_ED25519_SUPPORT != 0
-)
-
-type Method *C.EVP_MD
-
 var (
-	SHA1_Method   Method = C.X_EVP_sha1()
-	SHA256_Method Method = C.X_EVP_sha256()
-	SHA512_Method Method = C.X_EVP_sha512()
+	ErrEmptyBlock = errors.New("empty block")
+	ErrLoadingKey = errors.New("failed loading private key")
 )
+
+type KeyType int
 
 // Constants for the various key types.
-// Mapping of name -> NID taken from openssl/evp.h
 const (
-	KeyTypeNone    = NID_undef
-	KeyTypeRSA     = NID_rsaEncryption
-	KeyTypeRSA2    = NID_rsa
-	KeyTypeDSA     = NID_dsa
-	KeyTypeDSA1    = NID_dsa_2
-	KeyTypeDSA2    = NID_dsaWithSHA
-	KeyTypeDSA3    = NID_dsaWithSHA1
-	KeyTypeDSA4    = NID_dsaWithSHA1_2
-	KeyTypeDH      = NID_dhKeyAgreement
-	KeyTypeDHX     = NID_dhpublicnumber
-	KeyTypeEC      = NID_X9_62_id_ecPublicKey
-	KeyTypeHMAC    = NID_hmac
-	KeyTypeCMAC    = NID_cmac
-	KeyTypeTLS1PRF = NID_tls1_prf
-	KeyTypeHKDF    = NID_hkdf
-	KeyTypeX25519  = NID_X25519
-	KeyTypeX448    = NID_X448
-	KeyTypeED25519 = NID_ED25519
-	KeyTypeED448   = NID_ED448
+	KeyTypeNone     KeyType = C.EVP_PKEY_NONE
+	KeyTypeRSA      KeyType = C.EVP_PKEY_RSA
+	KeyTypeRSA2     KeyType = C.EVP_PKEY_RSA2
+	KeyTypeRSAPSS   KeyType = C.EVP_PKEY_RSA_PSS
+	KeyTypeDSA      KeyType = C.EVP_PKEY_DSA
+	KeyTypeDSA1     KeyType = C.EVP_PKEY_DSA1
+	KeyTypeDSA2     KeyType = C.EVP_PKEY_DSA2
+	KeyTypeDSA3     KeyType = C.EVP_PKEY_DSA3
+	KeyTypeDSA4     KeyType = C.EVP_PKEY_DSA4
+	KeyTypeDH       KeyType = C.EVP_PKEY_DH
+	KeyTypeDHX      KeyType = C.EVP_PKEY_DHX
+	KeyTypeEC       KeyType = C.EVP_PKEY_EC
+	KeyTypeSM2      KeyType = C.EVP_PKEY_SM2
+	KeyTypeHMAC     KeyType = C.EVP_PKEY_HMAC
+	KeyTypeCMAC     KeyType = C.EVP_PKEY_CMAC
+	KeyTypeScrypt   KeyType = C.EVP_PKEY_SCRYPT
+	KeyTypeTLS1PRF  KeyType = C.EVP_PKEY_TLS1_PRF
+	KeyTypeHKDF     KeyType = C.EVP_PKEY_HKDF
+	KeyTypePoly1305 KeyType = C.EVP_PKEY_POLY1305
+	KeyTypeSIPHash  KeyType = C.EVP_PKEY_SIPHASH
+	KeyTypeX25519   KeyType = C.EVP_PKEY_X25519
+	KeyTypeED25519  KeyType = C.EVP_PKEY_ED25519
+	KeyTypeX448     KeyType = C.EVP_PKEY_X448
+	KeyTypeED448    KeyType = C.EVP_PKEY_ED448
 )
 
 type PublicKey interface {
-	// Verifies the data signature using PKCS1.15
-	VerifyPKCS1v15(method Method, data, sig []byte) error
+	// VerifyPKCS1v15 verifies the data signature using PKCS1.15
+	VerifyPKCS1v15(digest *Digest, data, sig []byte) error
 
-	// MarshalPKIXPublicKeyPEM converts the public key to PEM-encoded PKIX
-	// format
-	MarshalPKIXPublicKeyPEM() (pem_block []byte, err error)
+	// MarshalPKIXPublicKeyPEM converts the public key to PEM-encoded PKIX format
+	MarshalPKIXPublicKeyPEM() (pemBlock []byte, err error)
 
-	// MarshalPKIXPublicKeyDER converts the public key to DER-encoded PKIX
-	// format
-	MarshalPKIXPublicKeyDER() (der_block []byte, err error)
+	// MarshalPKIXPublicKeyDER converts the public key to DER-encoded PKIX format
+	MarshalPKIXPublicKeyDER() (derBlock []byte, err error)
 
-	// KeyType returns an identifier for what kind of key is represented by this
-	// object.
-	KeyType() NID
+	// KeyType returns an identifier for what kind of key is represented by this object.
+	KeyType() KeyType
 
 	// BaseType returns an identifier for what kind of key is represented
 	// by this object.
@@ -97,91 +96,99 @@ type PublicKey interface {
 type PrivateKey interface {
 	PublicKey
 
-	// Signs the data using PKCS1.15
-	SignPKCS1v15(Method, []byte) ([]byte, error)
+	// SignPKCS1v15 signs the data using PKCS1.15
+	SignPKCS1v15(*Digest, []byte) ([]byte, error)
 
-	// MarshalPKCS1PrivateKeyPEM converts the private key to PEM-encoded PKCS1
-	// format
-	MarshalPKCS1PrivateKeyPEM() (pem_block []byte, err error)
+	// MarshalPKCS1PrivateKeyPEM converts the private key to PEM-encoded PKCS1 format
+	MarshalPKCS1PrivateKeyPEM() (pemBlock []byte, err error)
 
-	// MarshalPKCS1PrivateKeyDER converts the private key to DER-encoded PKCS1
-	// format
-	MarshalPKCS1PrivateKeyDER() (der_block []byte, err error)
+	// MarshalPKCS1PrivateKeyDER converts the private key to DER-encoded PKCS1 format
+	MarshalPKCS1PrivateKeyDER() (derBlock []byte, err error)
 }
 
 type pKey struct {
 	key *C.EVP_PKEY
 }
 
+func pKeyFromKey(key *C.EVP_PKEY) *pKey {
+	pkey := &pKey{key: key}
+	runtime.SetFinalizer(pkey, func(p *pKey) {
+		C.EVP_PKEY_free(p.key)
+	})
+	return pkey
+}
+
 func (key *pKey) evpPKey() *C.EVP_PKEY { return key.key }
 
 func (key *pKey) Equal(other PublicKey) bool {
-	return C.EVP_PKEY_cmp(key.key, other.evpPKey()) == 1
+	return C.EVP_PKEY_eq(key.key, other.evpPKey()) == 1
 }
 
-func (key *pKey) KeyType() NID {
-	return NID(C.EVP_PKEY_id(key.key))
+func (key *pKey) KeyType() KeyType {
+	return KeyType(C.EVP_PKEY_get_id(key.key))
 }
 
 func (key *pKey) Size() int {
-	return int(C.EVP_PKEY_size(key.key))
+	return int(C.EVP_PKEY_get_size(key.key))
+}
+
+func (key *pKey) Bits() int {
+	return int(C.EVP_PKEY_get_bits(key.key))
+}
+
+func (key *pKey) SecurityBits() int {
+	return int(C.EVP_PKEY_get_security_bits(key.key))
 }
 
 func (key *pKey) BaseType() NID {
-	return NID(C.EVP_PKEY_base_id(key.key))
+	return NID(C.EVP_PKEY_get_base_id(key.key))
 }
 
-func (key *pKey) SignPKCS1v15(method Method, data []byte) ([]byte, error) {
+func (key *pKey) SignPKCS1v15(digest *Digest, data []byte) ([]byte, error) {
 
-	ctx := C.X_EVP_MD_CTX_new()
-	defer C.X_EVP_MD_CTX_free(ctx)
+	ctx := C.EVP_MD_CTX_new()
+	defer C.EVP_MD_CTX_free(ctx)
 
 	if key.KeyType() == KeyTypeED25519 {
 		// do ED specific one-shot sign
-
-		if method != nil || len(data) == 0 {
+		if digest != nil {
+			return nil, errors.New("signpkcs1v15: digest must be null")
+		}
+		if len(data) == 0 {
 			return nil, errors.New("signpkcs1v15: 0-length data or non-null digest")
 		}
 
-		if C.X_EVP_DigestSignInit(ctx, nil, nil, nil, key.key) != 1 {
-			return nil, errors.New("signpkcs1v15: failed to init signature")
+		if C.EVP_DigestSignInit(ctx, nil, nil, nil, key.key) != 1 {
+			return nil, errorFromErrorQueue()
 		}
 
 		// evp signatures are 64 bytes
 		sig := make([]byte, 64)
-		var sigblen C.size_t = 64
-		if C.X_EVP_DigestSign(ctx,
+		var siglen C.size_t = 64
+		if C.EVP_DigestSign(ctx,
 			(*C.uchar)(unsafe.Pointer(&sig[0])),
-			&sigblen,
+			&siglen,
 			(*C.uchar)(unsafe.Pointer(&data[0])),
 			C.size_t(len(data))) != 1 {
-			return nil, errors.New("signpkcs1v15: failed to do one-shot signature")
+			return nil, errorFromErrorQueue()
 		}
 
-		return sig[:sigblen], nil
+		return sig[:siglen], nil
 	} else {
-		if C.X_EVP_SignInit(ctx, method) != 1 {
-			return nil, errors.New("signpkcs1v15: failed to init signature")
+		job, err := newDigestJob(*digest)
+		if err != nil {
+			return nil, err
 		}
-		if len(data) > 0 {
-			if C.X_EVP_SignUpdate(
-				ctx, unsafe.Pointer(&data[0]), C.uint(len(data))) != 1 {
-				return nil, errors.New("signpkcs1v15: failed to update signature")
-			}
+		if err = job.Update(data); err != nil {
+			return nil, err
 		}
-		sig := make([]byte, C.X_EVP_PKEY_size(key.key))
-		var sigblen C.uint
-		if C.X_EVP_SignFinal(ctx,
-			(*C.uchar)(unsafe.Pointer(&sig[0])), &sigblen, key.key) != 1 {
-			return nil, errors.New("signpkcs1v15: failed to finalize signature")
-		}
-		return sig[:sigblen], nil
+		return job.SignFinal(key)
 	}
 }
 
-func (key *pKey) VerifyPKCS1v15(method Method, data, sig []byte) error {
-	ctx := C.X_EVP_MD_CTX_new()
-	defer C.X_EVP_MD_CTX_free(ctx)
+func (key *pKey) VerifyPKCS1v15(digest *Digest, data, sig []byte) error {
+	ctx := C.EVP_MD_CTX_new()
+	defer C.EVP_MD_CTX_free(ctx)
 
 	if len(sig) == 0 {
 		return errors.New("verifypkcs1v15: 0-length sig")
@@ -190,233 +197,342 @@ func (key *pKey) VerifyPKCS1v15(method Method, data, sig []byte) error {
 	if key.KeyType() == KeyTypeED25519 {
 		// do ED specific one-shot sign
 
-		if method != nil || len(data) == 0 {
+		if digest != nil || len(data) == 0 {
 			return errors.New("verifypkcs1v15: 0-length data or non-null digest")
 		}
 
-		if C.X_EVP_DigestVerifyInit(ctx, nil, nil, nil, key.key) != 1 {
-			return errors.New("verifypkcs1v15: failed to init verify")
+		if C.EVP_DigestVerifyInit(ctx, nil, nil, nil, key.key) != 1 {
+			return errorFromErrorQueue()
 		}
 
-		if C.X_EVP_DigestVerify(ctx,
+		if C.EVP_DigestVerify(ctx,
 			(*C.uchar)(unsafe.Pointer(&sig[0])),
 			C.size_t(len(sig)),
 			(*C.uchar)(unsafe.Pointer(&data[0])),
 			C.size_t(len(data))) != 1 {
-			return errors.New("verifypkcs1v15: failed to do one-shot verify")
+			return errorFromErrorQueue()
 		}
 
 		return nil
 
 	} else {
-		if C.X_EVP_VerifyInit(ctx, method) != 1 {
-			return errors.New("verifypkcs1v15: failed to init verify")
+		job, err := newDigestJob(*digest)
+		if err != nil {
+			return err
 		}
-		if len(data) > 0 {
-			if C.X_EVP_VerifyUpdate(
-				ctx, unsafe.Pointer(&data[0]), C.uint(len(data))) != 1 {
-				return errors.New("verifypkcs1v15: failed to update verify")
-			}
+		if err = job.Update(data); err != nil {
+			return err
 		}
-		if C.X_EVP_VerifyFinal(ctx,
-			(*C.uchar)(unsafe.Pointer(&sig[0])), C.uint(len(sig)), key.key) != 1 {
-			return errors.New("verifypkcs1v15: failed to finalize verify")
-		}
-		return nil
+		return job.VerifyFinal(sig, key)
 	}
 }
 
-func (key *pKey) MarshalPKCS1PrivateKeyPEM() (pem_block []byte,
-	err error) {
-	bio := C.BIO_new(C.BIO_s_mem())
-	if bio == nil {
-		return nil, errors.New("failed to allocate memory BIO")
+func (key *pKey) MarshalPKCS1PrivateKeyPEM() (pemBlock []byte, err error) {
+	bio, err := newBio(nil)
+	if err != nil {
+		return nil, err
 	}
-	defer C.BIO_free(bio)
 
 	// PEM_write_bio_PrivateKey_traditional will use the key-specific PKCS1
 	// format if one is available for that key type, otherwise it will encode
 	// to a PKCS8 key.
-	if int(C.X_PEM_write_bio_PrivateKey_traditional(bio, key.key, nil, nil,
-		C.int(0), nil, nil)) != 1 {
+	if int(C.PEM_write_bio_PrivateKey_traditional(
+		bio.ptr, key.key, nil, nil, C.int(0), nil, nil,
+	)) != 1 {
 		return nil, errors.New("failed dumping private key")
 	}
 
-	return io.ReadAll(asAnyBio(bio))
+	return io.ReadAll(bio.asAnyBio())
 }
 
-func (key *pKey) MarshalPKCS1PrivateKeyDER() (der_block []byte,
-	err error) {
-	bio := C.BIO_new(C.BIO_s_mem())
-	if bio == nil {
-		return nil, errors.New("failed to allocate memory BIO")
+func (key *pKey) MarshalPKCS1PrivateKeyDER() (derBlock []byte, err error) {
+	bio, err := newBio(nil)
+	if err != nil {
+		return nil, err
 	}
-	defer C.BIO_free(bio)
 
-	if int(C.i2d_PrivateKey_bio(bio, key.key)) != 1 {
+	if int(C.i2d_PrivateKey_bio(bio.ptr, key.key)) != 1 {
 		return nil, errors.New("failed dumping private key der")
 	}
 
-	return io.ReadAll(asAnyBio(bio))
+	return io.ReadAll(bio.asAnyBio())
 }
 
-func (key *pKey) MarshalPKIXPublicKeyPEM() (pem_block []byte,
-	err error) {
-	bio := C.BIO_new(C.BIO_s_mem())
-	if bio == nil {
-		return nil, errors.New("failed to allocate memory BIO")
+func (key *pKey) MarshalPKIXPublicKeyPEM() (pemBlock []byte, err error) {
+	bio, err := newBio(nil)
+	if err != nil {
+		return nil, err
 	}
-	defer C.BIO_free(bio)
 
-	if int(C.PEM_write_bio_PUBKEY(bio, key.key)) != 1 {
+	if int(C.PEM_write_bio_PUBKEY(bio.ptr, key.key)) != 1 {
 		return nil, errors.New("failed dumping public key pem")
 	}
 
-	return io.ReadAll(asAnyBio(bio))
+	return io.ReadAll(bio.asAnyBio())
 }
 
-func (key *pKey) MarshalPKIXPublicKeyDER() (der_block []byte,
-	err error) {
-	bio := C.BIO_new(C.BIO_s_mem())
-	if bio == nil {
-		return nil, errors.New("failed to allocate memory BIO")
+func (key *pKey) MarshalPKIXPublicKeyDER() (derBlock []byte, err error) {
+	bio, err := newBio(nil)
+	if err != nil {
+		return nil, err
 	}
-	defer C.BIO_free(bio)
 
-	if int(C.i2d_PUBKEY_bio(bio, key.key)) != 1 {
+	if int(C.i2d_PUBKEY_bio(bio.ptr, key.key)) != 1 {
 		return nil, errors.New("failed dumping public key der")
 	}
 
-	return io.ReadAll(asAnyBio(bio))
+	return io.ReadAll(bio.asAnyBio())
 }
 
 // LoadPrivateKeyFromPEM loads a private key from a PEM-encoded block.
-func LoadPrivateKeyFromPEM(pem_block []byte) (PrivateKey, error) {
-	if len(pem_block) == 0 {
-		return nil, errors.New("empty pem block")
+func LoadPrivateKeyFromPEM(pemBlock []byte) (PrivateKey, error) {
+	if len(pemBlock) == 0 {
+		return nil, ErrEmptyBlock
 	}
-	bio := C.BIO_new_mem_buf(unsafe.Pointer(&pem_block[0]),
-		C.int(len(pem_block)))
-	if bio == nil {
-		return nil, errors.New("failed creating bio")
+	bio, err := newBio(pemBlock)
+	if err != nil {
+		return nil, err
 	}
-	defer C.BIO_free(bio)
-
-	key := C.PEM_read_bio_PrivateKey(bio, nil, nil, nil)
+	key := C.PEM_read_bio_PrivateKey(bio.ptr, nil, nil, nil)
 	if key == nil {
-		return nil, errors.New("failed reading private key")
+		return nil, ErrLoadingKey
 	}
 
-	p := &pKey{key: key}
-	runtime.SetFinalizer(p, func(p *pKey) {
-		C.X_EVP_PKEY_free(p.key)
-	})
-	return p, nil
+	return pKeyFromKey(key), nil
 }
 
 // LoadPrivateKeyFromPEMWithPassword loads a private key from a PEM-encoded block.
-func LoadPrivateKeyFromPEMWithPassword(pem_block []byte, password string) (
-	PrivateKey, error) {
-	if len(pem_block) == 0 {
-		return nil, errors.New("empty pem block")
+func LoadPrivateKeyFromPEMWithPassword(pemBlock []byte, password string) (PrivateKey, error) {
+	if len(pemBlock) == 0 {
+		return nil, ErrEmptyBlock
 	}
-	bio := C.BIO_new_mem_buf(unsafe.Pointer(&pem_block[0]),
-		C.int(len(pem_block)))
-	if bio == nil {
-		return nil, errors.New("failed creating bio")
+	bio, err := newBio(pemBlock)
+	if err != nil {
+		return nil, err
 	}
-	defer C.BIO_free(bio)
-	cs := C.CString(password)
-	defer C.free(unsafe.Pointer(cs))
-	key := C.PEM_read_bio_PrivateKey(bio, nil, nil, unsafe.Pointer(cs))
+	cs := unsafe.Pointer(C.CString(password))
+	defer C.free(cs)
+	key := C.PEM_read_bio_PrivateKey(bio.ptr, nil, nil, cs)
 	if key == nil {
-		return nil, errors.New("failed reading private key")
+		return nil, ErrLoadingKey
 	}
 
-	p := &pKey{key: key}
-	runtime.SetFinalizer(p, func(p *pKey) {
-		C.X_EVP_PKEY_free(p.key)
-	})
-	return p, nil
+	return pKeyFromKey(key), nil
 }
 
 // LoadPrivateKeyFromDER loads a private key from a DER-encoded block.
-func LoadPrivateKeyFromDER(der_block []byte) (PrivateKey, error) {
-	if len(der_block) == 0 {
-		return nil, errors.New("empty der block")
+func LoadPrivateKeyFromDER(derBlock []byte) (PrivateKey, error) {
+	if len(derBlock) == 0 {
+		return nil, ErrEmptyBlock
 	}
-	bio := C.BIO_new_mem_buf(unsafe.Pointer(&der_block[0]),
-		C.int(len(der_block)))
-	if bio == nil {
-		return nil, errors.New("failed creating bio")
+	bio, err := newBio(derBlock)
+	if err != nil {
+		return nil, err
 	}
-	defer C.BIO_free(bio)
 
-	key := C.d2i_PrivateKey_bio(bio, nil)
+	key := C.d2i_PrivateKey_bio(bio.ptr, nil)
 	if key == nil {
-		return nil, errors.New("failed reading private key der")
+		return nil, ErrLoadingKey
 	}
 
-	p := &pKey{key: key}
-	runtime.SetFinalizer(p, func(p *pKey) {
-		C.X_EVP_PKEY_free(p.key)
-	})
-	return p, nil
-}
-
-// LoadPrivateKeyFromPEMWidthPassword loads a private key from a PEM-encoded block.
-// Backwards-compatible with typo
-func LoadPrivateKeyFromPEMWidthPassword(pem_block []byte, password string) (
-	PrivateKey, error) {
-	return LoadPrivateKeyFromPEMWithPassword(pem_block, password)
+	return pKeyFromKey(key), nil
 }
 
 // LoadPublicKeyFromPEM loads a public key from a PEM-encoded block.
-func LoadPublicKeyFromPEM(pem_block []byte) (PublicKey, error) {
-	if len(pem_block) == 0 {
-		return nil, errors.New("empty pem block")
+func LoadPublicKeyFromPEM(pemBlock []byte) (PublicKey, error) {
+	if len(pemBlock) == 0 {
+		return nil, ErrEmptyBlock
 	}
-	bio := C.BIO_new_mem_buf(unsafe.Pointer(&pem_block[0]),
-		C.int(len(pem_block)))
-	if bio == nil {
-		return nil, errors.New("failed creating bio")
+	bio, err := newBio(pemBlock)
+	if err != nil {
+		return nil, err
 	}
-	defer C.BIO_free(bio)
 
-	key := C.PEM_read_bio_PUBKEY(bio, nil, nil, nil)
+	key := C.PEM_read_bio_PUBKEY(bio.ptr, nil, nil, nil)
 	if key == nil {
-		return nil, errors.New("failed reading public key der")
+		return nil, ErrLoadingKey
 	}
 
-	p := &pKey{key: key}
-	runtime.SetFinalizer(p, func(p *pKey) {
-		C.X_EVP_PKEY_free(p.key)
-	})
-	return p, nil
+	return pKeyFromKey(key), nil
 }
 
 // LoadPublicKeyFromDER loads a public key from a DER-encoded block.
-func LoadPublicKeyFromDER(der_block []byte) (PublicKey, error) {
-	if len(der_block) == 0 {
-		return nil, errors.New("empty der block")
+func LoadPublicKeyFromDER(derBlock []byte) (PublicKey, error) {
+	if len(derBlock) == 0 {
+		return nil, ErrEmptyBlock
 	}
-	bio := C.BIO_new_mem_buf(unsafe.Pointer(&der_block[0]),
-		C.int(len(der_block)))
-	if bio == nil {
-		return nil, errors.New("failed creating bio")
+	bio, err := newBio(derBlock)
+	if err != nil {
+		return nil, err
 	}
-	defer C.BIO_free(bio)
 
-	key := C.d2i_PUBKEY_bio(bio, nil)
+	key := C.d2i_PUBKEY_bio(bio.ptr, nil)
 	if key == nil {
-		return nil, errors.New("failed reading public key der")
+		return nil, ErrLoadingKey
 	}
 
-	p := &pKey{key: key}
-	runtime.SetFinalizer(p, func(p *pKey) {
-		C.X_EVP_PKEY_free(p.key)
+	return pKeyFromKey(key), nil
+}
+
+type PrivateKeyContext interface {
+	evpCtx() *C.EVP_PKEY_CTX
+	SetRSAKeygenBits(bits int) error
+	SetRSAKeygenPubExp(exponent int) error
+}
+type PrivateKeyGenerationContext interface {
+	PrivateKeyContext
+	Generate() (PrivateKey, error)
+}
+type PrivateKeyParamGenerationContext interface {
+	PrivateKeyContext
+	Generate() (PrivateKey, error)
+	SetECParamGenCurveNID(curve EllipticCurve) error
+}
+type PrivateKeyDeriveContext interface {
+	PrivateKeyContext
+	SetPeer(peer PublicKey) error
+	Derive() ([]byte, error)
+}
+
+type pkeyCtx struct {
+	ctx   *C.EVP_PKEY_CTX
+	keyID KeyType
+}
+type pkeyGenCtx struct {
+	pkeyCtx
+}
+type pkeyParamGenCtx struct {
+	pkeyCtx
+}
+type pkeyDeriveCtx struct {
+	pkeyCtx
+}
+
+func (p *pkeyCtx) evpCtx() *C.EVP_PKEY_CTX {
+	return p.ctx
+}
+
+func (p *pkeyCtx) SetRSAKeygenBits(bits int) error {
+	if int(C.EVP_PKEY_CTX_set_rsa_keygen_bits(p.ctx, C.int(bits))) != 1 {
+		return errorFromErrorQueue()
+	}
+	return nil
+}
+func (p *pkeyCtx) SetRSAKeygenPubExp(exponent int) error {
+	exponentBn, err := newBignumFromInt(exponent)
+	if err != nil {
+		return err
+	}
+	if int(C.EVP_PKEY_CTX_set1_rsa_keygen_pubexp(p.ctx, exponentBn.bn)) != 1 {
+		return errorFromErrorQueue()
+	}
+	return nil
+}
+func (p *pkeyCtx) generate() (PrivateKey, error) {
+	var key *C.EVP_PKEY
+	if int(C.EVP_PKEY_generate(p.ctx, &key)) != 1 {
+		return nil, errorFromErrorQueue()
+	}
+	return pKeyFromKey(key), nil
+}
+
+func (p *pkeyParamGenCtx) SetECParamGenCurveNID(curve EllipticCurve) error {
+	if int(C.EVP_PKEY_CTX_set_ec_paramgen_curve_nid(p.ctx, C.int(curve))) != 1 {
+		return errorFromErrorQueue()
+	}
+	return nil
+}
+func (p *pkeyParamGenCtx) Generate() (PrivateKey, error) {
+	return p.generate()
+}
+
+func (p *pkeyGenCtx) Generate() (PrivateKey, error) {
+	return p.generate()
+}
+
+func (p *pkeyDeriveCtx) SetPeer(peer PublicKey) error {
+	if int(C.EVP_PKEY_derive_set_peer(p.ctx, peer.evpPKey())) != 1 {
+		return errorFromErrorQueue()
+	}
+	return nil
+}
+func (p *pkeyDeriveCtx) Derive() ([]byte, error) {
+	var bufferLen C.size_t
+	if int(C.EVP_PKEY_derive(p.ctx, nil, &bufferLen)) != 1 {
+		return nil, errorFromErrorQueue()
+	}
+	buffer := make([]byte, bufferLen)
+	if int(C.EVP_PKEY_derive(
+		p.ctx, (*C.uchar)(unsafe.Pointer(&buffer[0])), &bufferLen),
+	) != 1 {
+		return nil, errorFromErrorQueue()
+	}
+	return buffer[:bufferLen], nil
+}
+
+func newPKeyContextFromKey(key PrivateKey) (*pkeyCtx, error) {
+	ctx := C.EVP_PKEY_CTX_new(key.evpPKey(), nil)
+	if ctx == nil {
+		return nil, errors.New("failed to create pKeyCtx")
+	}
+	return &pkeyCtx{ctx, key.KeyType()}, nil
+}
+func newPKeyContextFromKeyType(keyType KeyType) (*pkeyCtx, error) {
+	ctx := C.EVP_PKEY_CTX_new_id(C.int(keyType), nil)
+	if ctx == nil {
+		return nil, errors.New("failed to create pKeyCtx")
+	}
+	keyCtx := &pkeyCtx{ctx: ctx}
+	runtime.SetFinalizer(keyCtx, func(c *pkeyCtx) {
+		if c.ctx != nil {
+			C.EVP_PKEY_CTX_free(c.ctx)
+			c.ctx = nil
+		}
 	})
-	return p, nil
+	return keyCtx, nil
+}
+
+func NewPKeyGenerationContextFromKey(key PrivateKey) (PrivateKeyGenerationContext, error) {
+	ctx, err := newPKeyContextFromKey(key)
+	if err != nil {
+		return nil, err
+	}
+	if int(C.EVP_PKEY_keygen_init(ctx.evpCtx())) != 1 {
+		return nil, errorFromErrorQueue()
+	}
+	return &pkeyGenCtx{*ctx}, nil
+}
+func NewPKeyGenerationContextFromKeyType(keyType KeyType) (PrivateKeyGenerationContext, error) {
+	ctx, err := newPKeyContextFromKeyType(keyType)
+	if err != nil {
+		return nil, err
+	}
+	if int(C.EVP_PKEY_keygen_init(ctx.evpCtx())) != 1 {
+		return nil, errorFromErrorQueue()
+	}
+	return &pkeyGenCtx{*ctx}, nil
+}
+
+func NewPKeyParamGenerationCtx(keyID KeyType) (PrivateKeyParamGenerationContext, error) {
+	ctx, err := newPKeyContextFromKeyType(keyID)
+	if err != nil {
+		return nil, err
+	}
+	if int(C.EVP_PKEY_paramgen_init(ctx.evpCtx())) != 1 {
+		return nil, errorFromErrorQueue()
+	}
+	return &pkeyParamGenCtx{*ctx}, nil
+}
+
+func NewPKeyDeriveContextFromKey(key PrivateKey) (PrivateKeyDeriveContext, error) {
+	ctx, err := newPKeyContextFromKey(key)
+	if err != nil {
+		return nil, err
+	}
+	if int(C.EVP_PKEY_derive_init(ctx.evpCtx())) != 1 {
+		return nil, errorFromErrorQueue()
+	}
+	return &pkeyDeriveCtx{*ctx}, nil
 }
 
 // GenerateRSAKey generates a new RSA private key with an exponent of 3.
@@ -426,97 +542,57 @@ func GenerateRSAKey(bits int) (PrivateKey, error) {
 
 // GenerateRSAKeyWithExponent generates a new RSA private key.
 func GenerateRSAKeyWithExponent(bits int, exponent int) (PrivateKey, error) {
-	rsa := C.RSA_generate_key(C.int(bits), C.ulong(exponent), nil, nil)
-	if rsa == nil {
-		return nil, errors.New("failed to generate RSA key")
+	ctx, err := NewPKeyGenerationContextFromKeyType(KeyTypeRSA)
+	if err != nil {
+		return nil, err
 	}
-	key := C.X_EVP_PKEY_new()
-	if key == nil {
-		return nil, errors.New("failed to allocate EVP_PKEY")
+	if err = ctx.SetRSAKeygenBits(bits); err != nil {
+		return nil, err
 	}
-	if C.X_EVP_PKEY_assign_charp(key, C.EVP_PKEY_RSA, (*C.char)(unsafe.Pointer(rsa))) != 1 {
-		C.X_EVP_PKEY_free(key)
-		return nil, errors.New("failed to assign RSA key")
+	if err = ctx.SetRSAKeygenPubExp(exponent); err != nil {
+		return nil, err
 	}
-	p := &pKey{key: key}
-	runtime.SetFinalizer(p, func(p *pKey) {
-		C.X_EVP_PKEY_free(p.key)
-	})
+	p, err := ctx.Generate()
+	if err != nil {
+		return nil, err
+	}
 	return p, nil
 }
 
-// GenerateECKey generates a new elliptic curve private key on the speicified
-// curve.
+// GenerateECKey generates a new elliptic curve private key on the specified curve.
 func GenerateECKey(curve EllipticCurve) (PrivateKey, error) {
-
-	// Create context for parameter generation
-	paramCtx := C.EVP_PKEY_CTX_new_id(C.EVP_PKEY_EC, nil)
-	if paramCtx == nil {
-		return nil, errors.New("failed creating EC parameter generation context")
+	paramCtx, err := NewPKeyParamGenerationCtx(KeyTypeEC)
+	if err != nil {
+		return nil, err
 	}
-	defer C.EVP_PKEY_CTX_free(paramCtx)
-
-	// Intialize the parameter generation
-	if int(C.EVP_PKEY_paramgen_init(paramCtx)) != 1 {
-		return nil, errors.New("failed initializing EC parameter generation context")
+	if err = paramCtx.SetECParamGenCurveNID(curve); err != nil {
+		return nil, err
 	}
-
-	// Set curve in EC parameter generation context
-	if int(C.X_EVP_PKEY_CTX_set_ec_paramgen_curve_nid(paramCtx, C.int(curve))) != 1 {
-		return nil, errors.New("failed setting curve in EC parameter generation context")
+	params, err := paramCtx.Generate()
+	if err != nil {
+		return nil, err
 	}
 
-	// Create parameter object
-	var params *C.EVP_PKEY
-	if int(C.EVP_PKEY_paramgen(paramCtx, &params)) != 1 {
-		return nil, errors.New("failed creating EC key generation parameters")
+	keyCtx, err := NewPKeyGenerationContextFromKey(params)
+	if err != nil {
+		return nil, err
 	}
-	defer C.EVP_PKEY_free(params)
-
-	// Create context for the key generation
-	keyCtx := C.EVP_PKEY_CTX_new(params, nil)
-	if keyCtx == nil {
-		return nil, errors.New("failed creating EC key generation context")
+	key, err := keyCtx.Generate()
+	if err != nil {
+		return nil, err
 	}
-	defer C.EVP_PKEY_CTX_free(keyCtx)
-
-	// Generate the key
-	var privKey *C.EVP_PKEY
-	if int(C.EVP_PKEY_keygen_init(keyCtx)) != 1 {
-		return nil, errors.New("failed initializing EC key generation context")
-	}
-	if int(C.EVP_PKEY_keygen(keyCtx, &privKey)) != 1 {
-		return nil, errors.New("failed generating EC private key")
-	}
-
-	p := &pKey{key: privKey}
-	runtime.SetFinalizer(p, func(p *pKey) {
-		C.X_EVP_PKEY_free(p.key)
-	})
-	return p, nil
+	return key, nil
 }
 
 // GenerateED25519Key generates a Ed25519 key
 func GenerateED25519Key() (PrivateKey, error) {
-	// Key context
-	keyCtx := C.EVP_PKEY_CTX_new_id(C.X_EVP_PKEY_ED25519, nil)
-	if keyCtx == nil {
-		return nil, errors.New("failed creating EC parameter generation context")
+	keyCtx, err := NewPKeyGenerationContextFromKeyType(KeyTypeED25519)
+	if err != nil {
+		return nil, err
 	}
-	defer C.EVP_PKEY_CTX_free(keyCtx)
-
-	// Generate the key
-	var privKey *C.EVP_PKEY
-	if int(C.EVP_PKEY_keygen_init(keyCtx)) != 1 {
-		return nil, errors.New("failed initializing ED25519 key generation context")
+	key, err := keyCtx.Generate()
+	if err != nil {
+		return nil, err
 	}
-	if int(C.EVP_PKEY_keygen(keyCtx, &privKey)) != 1 {
-		return nil, errors.New("failed generating ED25519 private key")
-	}
-
-	p := &pKey{key: privKey}
-	runtime.SetFinalizer(p, func(p *pKey) {
-		C.X_EVP_PKEY_free(p.key)
-	})
-	return p, nil
+	return key, nil
 }

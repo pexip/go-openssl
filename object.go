@@ -14,11 +14,18 @@
 
 package openssl
 
-// #include "shim.h"
+// #include <openssl/objects.h>
 import "C"
+import "unsafe"
 
 // CreateObjectIdentifier creates ObjectIdentifier and returns NID for the created
 // ObjectIdentifier
 func CreateObjectIdentifier(oid string, shortName string, longName string) NID {
-	return NID(C.OBJ_create(C.CString(oid), C.CString(shortName), C.CString(longName)))
+	cOid := C.CString(oid)
+	defer C.free(unsafe.Pointer(cOid))
+	cShortName := C.CString(shortName)
+	defer C.free(unsafe.Pointer(cShortName))
+	cLongName := C.CString(longName)
+	defer C.free(unsafe.Pointer(cLongName))
+	return NID(C.OBJ_create(cOid, cShortName, cLongName))
 }

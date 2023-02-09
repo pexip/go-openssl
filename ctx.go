@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"os"
 	"runtime"
-	"sync"
 	"time"
 	"unsafe"
 
@@ -31,29 +30,38 @@ import (
 )
 
 var (
-	ssl_ctx_idx = C.X_SSL_CTX_new_index()
+	sslCtxIdx            = C.X_SSL_CTX_new_index()
+	ErrUnknownTLSVersion = errors.New("unknown ssl/tls version")
+	ErrInvalidPEM        = errors.New("invalid PEM")
+	ErrProtoTooLong      = errors.New("proto length is longer than 255")
 )
 
 type Ctx struct {
-	ctx       *C.SSL_CTX
-	cert      *Certificate
-	chain     []*Certificate
-	key       PrivateKey
-	verify_cb VerifyCallback
-	sni_cb    TLSExtServernameCallback
-
-	ticket_store_mu sync.Mutex
-	ticket_store    *TicketStore
+	ctx      *C.SSL_CTX
+	cert     *Certificate
+	chain    []*Certificate
+	key      PrivateKey
+	verifyCb VerifyCallback
+	sniCb    TLSExtServernameCallback
 }
 
 //export get_ssl_ctx_idx
 func get_ssl_ctx_idx() C.int {
-	return ssl_ctx_idx
+	return sslCtxIdx
 }
 
-func newCtx(method *C.SSL_METHOD) (*Ctx, error) {
+// NewCtx creates a new context. The minimum supported SSL/TLS version is inherited from
+// the library default. To change the min/max support SSL/TLS versions, use Ctx.SetMinProtoVersion
+// and Ctx.SetMaxProtoVersion respectively.
+func NewCtx() (*Ctx, error) {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
+
+	method := C.TLS_method()
+	if method == nil {
+		return nil, ErrUnknownTLSVersion
+	}
+
 	ctx := C.SSL_CTX_new(method)
 	if ctx == nil {
 		return nil, errorFromErrorQueue()
@@ -61,71 +69,30 @@ func newCtx(method *C.SSL_METHOD) (*Ctx, error) {
 	c := &Ctx{ctx: ctx}
 	C.SSL_CTX_set_ex_data(ctx, get_ssl_ctx_idx(), pointer.Save(c))
 	runtime.SetFinalizer(c, func(c *Ctx) {
-		C.SSL_CTX_free(c.ctx)
+		if c.ctx != nil {
+			C.SSL_CTX_free(c.ctx)
+			c.ctx = nil
+		}
 	})
 	return c, nil
 }
 
-type SSLVersion int
-
-const (
-	SSLv3   SSLVersion = 0x02 // Vulnerable to "POODLE" attack.
-	TLSv1   SSLVersion = 0x03
-	TLSv1_1 SSLVersion = 0x04
-	TLSv1_2 SSLVersion = 0x05
-
-	// Make sure to disable SSLv2 and SSLv3 if you use this. SSLv3 is vulnerable
-	// to the "POODLE" attack, and SSLv2 is what, just don't even.
-	AnyVersion SSLVersion = 0x06
-)
-
-// NewCtxWithVersion creates an SSL context that is specific to the provided
-// SSL version. See http://www.openssl.org/docs/ssl/SSL_CTX_new.html for more.
-func NewCtxWithVersion(version SSLVersion) (*Ctx, error) {
-	var method *C.SSL_METHOD
-	switch version {
-	case SSLv3:
-		method = C.X_SSLv3_method()
-	case TLSv1:
-		method = C.X_TLSv1_method()
-	case TLSv1_1:
-		method = C.X_TLSv1_1_method()
-	case TLSv1_2:
-		method = C.X_TLSv1_2_method()
-	case AnyVersion:
-		method = C.X_SSLv23_method()
-	}
-	if method == nil {
-		return nil, errors.New("unknown ssl/tls version")
-	}
-	return newCtx(method)
-}
-
-// NewCtx creates a context that supports any TLS version 1.0 and newer.
-func NewCtx() (*Ctx, error) {
-	c, err := NewCtxWithVersion(AnyVersion)
-	if err == nil {
-		c.SetOptions(NoSSLv2 | NoSSLv3)
-	}
-	return c, err
-}
-
 // NewCtxFromFiles calls NewCtx, loads the provided files, and configures the
 // context to use them.
-func NewCtxFromFiles(cert_file string, key_file string) (*Ctx, error) {
+func NewCtxFromFiles(certFile string, keyFile string) (*Ctx, error) {
 	ctx, err := NewCtx()
 	if err != nil {
 		return nil, err
 	}
 
-	cert_bytes, err := os.ReadFile(cert_file)
+	certBytes, err := os.ReadFile(certFile)
 	if err != nil {
 		return nil, err
 	}
 
-	certs := SplitPEM(cert_bytes)
+	certs := SplitPEM(certBytes)
 	if len(certs) == 0 {
-		return nil, fmt.Errorf("no PEM certificate found in '%s'", cert_file)
+		return nil, ErrInvalidPEM
 	}
 	first, certs := certs[0], certs[1:]
 	cert, err := LoadCertificateFromPEM(first)
@@ -139,7 +106,7 @@ func NewCtxFromFiles(cert_file string, key_file string) (*Ctx, error) {
 	}
 
 	for _, pem := range certs {
-		cert, err := LoadCertificateFromPEM(pem)
+		cert, err = LoadCertificateFromPEM(pem)
 		if err != nil {
 			return nil, err
 		}
@@ -149,12 +116,12 @@ func NewCtxFromFiles(cert_file string, key_file string) (*Ctx, error) {
 		}
 	}
 
-	key_bytes, err := os.ReadFile(key_file)
+	keyBytes, err := os.ReadFile(keyFile)
 	if err != nil {
 		return nil, err
 	}
 
-	key, err := LoadPrivateKeyFromPEM(key_bytes)
+	key, err := LoadPrivateKeyFromPEM(keyBytes)
 	if err != nil {
 		return nil, err
 	}
@@ -167,16 +134,16 @@ func NewCtxFromFiles(cert_file string, key_file string) (*Ctx, error) {
 	return ctx, nil
 }
 
-// EllipticCurve repesents the ASN.1 OID of an elliptic curve.
+// EllipticCurve represents the ASN.1 OID of an elliptic curve.
 // see https://www.openssl.org/docs/apps/ecparam.html for a list of implemented curves.
 type EllipticCurve int
 
 const (
-	// P-256: X9.62/SECG curve over a 256 bit prime field
+	// Prime256v1 P-256: X9.62/SECG curve over a 256 bit prime field
 	Prime256v1 EllipticCurve = C.NID_X9_62_prime256v1
-	// P-384: NIST/SECG curve over a 384 bit prime field
+	// Secp384r1 P-384: NIST/SECG curve over a 384 bit prime field
 	Secp384r1 EllipticCurve = C.NID_secp384r1
-	// P-521: NIST/SECG curve over a 521 bit prime field
+	// Secp521r1 P-521: NIST/SECG curve over a 521 bit prime field
 	Secp521r1 EllipticCurve = C.NID_secp521r1
 )
 
@@ -186,16 +153,10 @@ func (c *Ctx) SetEllipticCurve(curve EllipticCurve) error {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
-	k := C.EC_KEY_new_by_curve_name(C.int(curve))
-	if k == nil {
-		return errors.New("unknown curve")
-	}
-	defer C.EC_KEY_free(k)
-
-	if int(C.X_SSL_CTX_set_tmp_ecdh(c.ctx, k)) != 1 {
+	clist := C.int(curve)
+	if int(C.X_SSL_CTX_set1_curves(c.ctx, &clist, 1)) != 1 {
 		return errorFromErrorQueue()
 	}
-
 	return nil
 }
 
@@ -244,7 +205,7 @@ type CertificateStore struct {
 	certs []*Certificate
 }
 
-// Allocate a new, empty CertificateStore
+// NewCertificateStore Allocate a new, empty CertificateStore
 func NewCertificateStore() (*CertificateStore, error) {
 	s := C.X509_STORE_new()
 	if s == nil {
@@ -252,12 +213,15 @@ func NewCertificateStore() (*CertificateStore, error) {
 	}
 	store := &CertificateStore{store: s}
 	runtime.SetFinalizer(store, func(s *CertificateStore) {
-		C.X509_STORE_free(s.store)
+		if s.store != nil {
+			C.X509_STORE_free(s.store)
+			s.store = nil
+		}
 	})
 	return store, nil
 }
 
-// Parse a chained PEM file, loading all certificates into the Store.
+// LoadCertificatesFromPEM Loads all certificates into the Store from the parsed PEM
 func (s *CertificateStore) LoadCertificatesFromPEM(data []byte) error {
 	pems := SplitPEM(data)
 	for _, pem := range pems {
@@ -265,8 +229,7 @@ func (s *CertificateStore) LoadCertificatesFromPEM(data []byte) error {
 		if err != nil {
 			return err
 		}
-		err = s.AddCertificate(cert)
-		if err != nil {
+		if err = s.AddCertificate(cert); err != nil {
 			return err
 		}
 	}
@@ -317,20 +280,18 @@ func (csc *CertificateStoreCtx) Depth() int {
 	return int(C.X509_STORE_CTX_get_error_depth(csc.ctx))
 }
 
-// the certificate returned is only valid for the lifetime of the underlying
-// X509_STORE_CTX
+// GetCurrentCert fetches the current cert in the store.
+// The certificate returned is only valid for the lifetime of the underlying X509_STORE_CTX
 func (csc *CertificateStoreCtx) GetCurrentCert() *Certificate {
 	x509 := C.X509_STORE_CTX_get_current_cert(csc.ctx)
 	if x509 == nil {
 		return nil
 	}
 	// add a ref
-	if C.X_X509_add_ref(x509) != 1 {
+	if C.X509_up_ref(x509) != 1 {
 		return nil
 	}
-	cert := &Certificate{
-		x: x509,
-	}
+	cert := &Certificate{x: x509}
 	runtime.SetFinalizer(cert, func(cert *Certificate) {
 		C.X509_free(cert.x)
 	})
@@ -341,19 +302,19 @@ func (csc *CertificateStoreCtx) GetCurrentCert() *Certificate {
 // provided in either the ca_file or the ca_path.
 // See http://www.openssl.org/docs/ssl/SSL_CTX_load_verify_locations.html for
 // more.
-func (c *Ctx) LoadVerifyLocations(ca_file string, ca_path string) error {
+func (c *Ctx) LoadVerifyLocations(caFile string, caPath string) error {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
-	var c_ca_file, c_ca_path *C.char
-	if ca_file != "" {
-		c_ca_file = C.CString(ca_file)
-		defer C.free(unsafe.Pointer(c_ca_file))
+	var cCaFile, cCaPath *C.char
+	if caFile != "" {
+		cCaFile = C.CString(caFile)
+		defer C.free(unsafe.Pointer(cCaFile))
 	}
-	if ca_path != "" {
-		c_ca_path = C.CString(ca_path)
-		defer C.free(unsafe.Pointer(c_ca_path))
+	if caPath != "" {
+		cCaPath = C.CString(caPath)
+		defer C.free(unsafe.Pointer(cCaPath))
 	}
-	if C.SSL_CTX_load_verify_locations(c.ctx, c_ca_file, c_ca_path) != 1 {
+	if C.SSL_CTX_load_verify_locations(c.ctx, cCaFile, cCaPath) != 1 {
 		return errorFromErrorQueue()
 	}
 	return nil
@@ -362,37 +323,39 @@ func (c *Ctx) LoadVerifyLocations(ca_file string, ca_path string) error {
 type Version int
 
 const (
-	SSL3_VERSION    Version = C.SSL3_VERSION
-	TLS1_VERSION    Version = C.TLS1_VERSION
-	TLS1_1_VERSION  Version = C.TLS1_1_VERSION
-	TLS1_2_VERSION  Version = C.TLS1_2_VERSION
-	TLS1_3_VERSION  Version = C.X_TLS1_3_VERSION
-	DTLS1_VERSION   Version = C.DTLS1_VERSION
-	DTLS1_2_VERSION Version = C.DTLS1_2_VERSION
+	SSL3version   Version = C.SSL3_VERSION
+	TLS1version   Version = C.TLS1_VERSION
+	TLS11version  Version = C.TLS1_1_VERSION
+	TLS12version  Version = C.TLS1_2_VERSION
+	TLS13version  Version = C.TLS1_3_VERSION
+	DTLS1version  Version = C.DTLS1_VERSION
+	DTLS12version Version = C.DTLS1_2_VERSION
 )
 
 // SetMinProtoVersion sets the minimum supported protocol version for the Ctx.
 // http://www.openssl.org/docs/ssl/SSL_CTX_set_min_proto_version.html
 func (c *Ctx) SetMinProtoVersion(version Version) bool {
-	return C.X_SSL_CTX_set_min_proto_version(
-		c.ctx, C.int(version)) == 1
+	return C.X_SSL_CTX_set_min_proto_version(c.ctx, C.long(version)) == 1
 }
 
 // SetMaxProtoVersion sets the maximum supported protocol version for the Ctx.
 // http://www.openssl.org/docs/ssl/SSL_CTX_set_max_proto_version.html
 func (c *Ctx) SetMaxProtoVersion(version Version) bool {
-	return C.X_SSL_CTX_set_max_proto_version(
-		c.ctx, C.int(version)) == 1
+	return C.X_SSL_CTX_set_max_proto_version(c.ctx, C.long(version)) == 1
 }
 
 type Options int
 
 const (
-	// NoCompression is only valid if you are using OpenSSL 1.0.1 or newer
 	NoCompression                      Options = C.SSL_OP_NO_COMPRESSION
 	NoSSLv2                            Options = C.SSL_OP_NO_SSLv2
 	NoSSLv3                            Options = C.SSL_OP_NO_SSLv3
 	NoTLSv1                            Options = C.SSL_OP_NO_TLSv1
+	NoTLSv11                           Options = C.SSL_OP_NO_TLSv1_1
+	NoTLSv12                           Options = C.SSL_OP_NO_TLSv1_2
+	NoTLSv13                           Options = C.SSL_OP_NO_TLSv1_3
+	NoDTLSv1                           Options = C.SSL_OP_NO_DTLSv1
+	NoDTLSv12                          Options = C.SSL_OP_NO_DTLSv1_2
 	CipherServerPreference             Options = C.SSL_OP_CIPHER_SERVER_PREFERENCE
 	NoSessionResumptionOrRenegotiation Options = C.SSL_OP_NO_SESSION_RESUMPTION_ON_RENEGOTIATION
 	NoTicket                           Options = C.SSL_OP_NO_TICKET
@@ -401,19 +364,17 @@ const (
 // SetOptions sets context options. See
 // http://www.openssl.org/docs/ssl/SSL_CTX_set_options.html
 func (c *Ctx) SetOptions(options Options) Options {
-	return Options(C.X_SSL_CTX_set_options(
-		c.ctx, C.long(options)))
+	return Options(C.SSL_CTX_set_options(c.ctx, C.uint64_t(options)))
 }
 
 func (c *Ctx) ClearOptions(options Options) Options {
-	return Options(C.X_SSL_CTX_clear_options(
-		c.ctx, C.long(options)))
+	return Options(C.SSL_CTX_clear_options(c.ctx, C.uint64_t(options)))
 }
 
 // GetOptions returns context options. See
 // https://www.openssl.org/docs/ssl/SSL_CTX_set_options.html
 func (c *Ctx) GetOptions() Options {
-	return Options(C.X_SSL_CTX_get_options(c.ctx))
+	return Options(C.SSL_CTX_get_options(c.ctx))
 }
 
 type Modes int
@@ -442,6 +403,7 @@ const (
 	VerifyPeer             VerifyOptions = C.SSL_VERIFY_PEER
 	VerifyFailIfNoPeerCert VerifyOptions = C.SSL_VERIFY_FAIL_IF_NO_PEER_CERT
 	VerifyClientOnce       VerifyOptions = C.SSL_VERIFY_CLIENT_ONCE
+	VerifyPostHandshake    VerifyOptions = C.SSL_VERIFY_POST_HANDSHAKE
 )
 
 type VerifyCallback func(ok bool, store *CertificateStoreCtx) bool
@@ -453,8 +415,8 @@ func go_ssl_ctx_verify_cb_thunk(p unsafe.Pointer, ok C.int, ctx *C.X509_STORE_CT
 			log.Panicf("openssl: verify callback panic'd: %v", err)
 		}
 	}()
-	verify_cb := pointer.Restore(p).(*Ctx).verify_cb
-	// set up defaults just in case verify_cb is nil
+	verify_cb := pointer.Restore(p).(*Ctx).verifyCb
+	// set up defaults just in case verifyCb is nil
 	if verify_cb != nil {
 		store := &CertificateStoreCtx{ctx: ctx}
 		if verify_cb(ok == 1, store) {
@@ -468,9 +430,9 @@ func go_ssl_ctx_verify_cb_thunk(p unsafe.Pointer, ok C.int, ctx *C.X509_STORE_CT
 
 // SetVerify controls peer verification settings. See
 // http://www.openssl.org/docs/ssl/SSL_CTX_set_verify.html
-func (c *Ctx) SetVerify(options VerifyOptions, verify_cb VerifyCallback) {
-	c.verify_cb = verify_cb
-	if verify_cb != nil {
+func (c *Ctx) SetVerify(options VerifyOptions, verifyCb VerifyCallback) {
+	c.verifyCb = verifyCb
+	if verifyCb != nil {
 		C.SSL_CTX_set_verify(c.ctx, C.int(options), (*[0]byte)(C.X_SSL_CTX_verify_cb))
 	} else {
 		C.SSL_CTX_set_verify(c.ctx, C.int(options), nil)
@@ -478,15 +440,15 @@ func (c *Ctx) SetVerify(options VerifyOptions, verify_cb VerifyCallback) {
 }
 
 func (c *Ctx) SetVerifyMode(options VerifyOptions) {
-	c.SetVerify(options, c.verify_cb)
+	c.SetVerify(options, c.verifyCb)
 }
 
-func (c *Ctx) SetVerifyCallback(verify_cb VerifyCallback) {
-	c.SetVerify(c.VerifyMode(), verify_cb)
+func (c *Ctx) SetVerifyCallback(verifyCb VerifyCallback) {
+	c.SetVerify(c.VerifyMode(), verifyCb)
 }
 
 func (c *Ctx) GetVerifyCallback() VerifyCallback {
-	return c.verify_cb
+	return c.verifyCb
 }
 
 func (c *Ctx) VerifyMode() VerifyOptions {
@@ -512,20 +474,21 @@ type TLSExtServernameCallback func(ssl *SSL) SSLTLSExtErr
 // SetTLSExtServernameCallback sets callback function for Server Name Indication
 // (SNI) rfc6066 (http://tools.ietf.org/html/rfc6066). See
 // http://stackoverflow.com/questions/22373332/serving-multiple-domains-in-one-box-with-sni
-func (c *Ctx) SetTLSExtServernameCallback(sni_cb TLSExtServernameCallback) {
-	c.sni_cb = sni_cb
+func (c *Ctx) SetTLSExtServernameCallback(sniCb TLSExtServernameCallback) {
+	c.sniCb = sniCb
 	C.X_SSL_CTX_set_tlsext_servername_callback(c.ctx, (*[0]byte)(C.sni_cb))
 }
 
-func (c *Ctx) SetSessionId(session_id []byte) error {
+func (c *Ctx) SetSessionId(sessionID []byte) error {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 	var ptr *C.uchar
-	if len(session_id) > 0 {
-		ptr = (*C.uchar)(unsafe.Pointer(&session_id[0]))
+	if len(sessionID) > 0 {
+		ptr = (*C.uchar)(unsafe.Pointer(&sessionID[0]))
 	}
-	if int(C.SSL_CTX_set_session_id_context(c.ctx, ptr,
-		C.uint(len(session_id)))) == 0 {
+	if int(C.SSL_CTX_set_session_id_context(
+		c.ctx, ptr, C.uint(len(sessionID)),
+	)) != 1 {
 		return errorFromErrorQueue()
 	}
 	return nil
@@ -539,7 +502,7 @@ func (c *Ctx) SetCipherList(list string) error {
 	defer runtime.UnlockOSThread()
 	clist := C.CString(list)
 	defer C.free(unsafe.Pointer(clist))
-	if int(C.SSL_CTX_set_cipher_list(c.ctx, clist)) == 0 {
+	if int(C.SSL_CTX_set_cipher_list(c.ctx, clist)) != 1 {
 		return errorFromErrorQueue()
 	}
 	return nil
@@ -553,17 +516,15 @@ func (c *Ctx) SetNextProtos(protos []string) error {
 	vector := make([]byte, 0)
 	for _, proto := range protos {
 		if len(proto) > 255 {
-			return fmt.Errorf(
-				"proto length can't be more than 255. But got a proto %s with length %d",
-				proto, len(proto))
+			return ErrProtoTooLong
 		}
-		vector = append(vector, byte(uint8(len(proto))))
+		vector = append(vector, uint8(len(proto)))
 		vector = append(vector, []byte(proto)...)
 	}
-	ret := int(C.SSL_CTX_set_alpn_protos(c.ctx, (*C.uchar)(unsafe.Pointer(&vector[0])),
-		C.uint(len(vector))))
-	if ret != 0 {
-		return errors.New("error while setting protos to ctx")
+	if int(C.SSL_CTX_set_alpn_protos(
+		c.ctx, (*C.uchar)(unsafe.Pointer(&vector[0])), C.uint(len(vector)),
+	)) != 0 {
+		return errorFromErrorQueue()
 	}
 	return nil
 }
@@ -588,27 +549,27 @@ func (c *Ctx) SetSessionCacheMode(modes SessionCacheModes) SessionCacheModes {
 		C.X_SSL_CTX_set_session_cache_mode(c.ctx, C.long(modes)))
 }
 
-// Set session cache timeout. Returns previously set value.
+// SetTimeout sets session cache timeout. Returns previously set value.
 // See https://www.openssl.org/docs/ssl/SSL_CTX_set_timeout.html
 func (c *Ctx) SetTimeout(t time.Duration) time.Duration {
-	prev := C.X_SSL_CTX_set_timeout(c.ctx, C.long(t/time.Second))
+	prev := C.SSL_CTX_set_timeout(c.ctx, C.long(t/time.Second))
 	return time.Duration(prev) * time.Second
 }
 
-// Get session cache timeout.
+// GetTimeout gets the session cache timeout.
 // See https://www.openssl.org/docs/ssl/SSL_CTX_set_timeout.html
 func (c *Ctx) GetTimeout() time.Duration {
-	return time.Duration(C.X_SSL_CTX_get_timeout(c.ctx)) * time.Second
+	return time.Duration(C.SSL_CTX_get_timeout(c.ctx)) * time.Second
 }
 
-// Set session cache size. Returns previously set value.
+// SetSessionCacheSize sets the session cache size. Returns previously set value.
 // https://www.openssl.org/docs/ssl/SSL_CTX_sess_set_cache_size.html
-func (c *Ctx) SessSetCacheSize(t int) int {
+func (c *Ctx) SetSessionCacheSize(t int) int {
 	return int(C.X_SSL_CTX_sess_set_cache_size(c.ctx, C.long(t)))
 }
 
-// Get session cache size.
+// GetSessionCacheSize gets the session cache size.
 // https://www.openssl.org/docs/ssl/SSL_CTX_sess_set_cache_size.html
-func (c *Ctx) SessGetCacheSize() int {
+func (c *Ctx) GetSessionCacheSize() int {
 	return int(C.X_SSL_CTX_sess_get_cache_size(c.ctx))
 }

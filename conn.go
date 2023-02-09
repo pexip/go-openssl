@@ -19,7 +19,6 @@ import "C"
 
 import (
 	"errors"
-	"fmt"
 	"io"
 	"net"
 	"runtime"
@@ -120,8 +119,8 @@ func newConn(conn net.Conn, ctx *Ctx) (*Conn, error) {
 	from_ssl := &writeBio{}
 
 	if ctx.GetMode()&ReleaseBuffers > 0 {
-		into_ssl.release_buffers = true
-		from_ssl.release_buffers = true
+		into_ssl.releaseBuffers = true
+		from_ssl.releaseBuffers = true
 	}
 
 	into_ssl_cbio := into_ssl.MakeCBIO()
@@ -320,7 +319,7 @@ func (c *Conn) PeerCertificate() (*Certificate, error) {
 	if c.is_shutdown {
 		return nil, errors.New("connection closed")
 	}
-	x := C.SSL_get_peer_certificate(c.ssl)
+	x := C.SSL_get1_peer_certificate(c.ssl)
 	if x == nil {
 		return nil, errors.New("no peer certificate found")
 	}
@@ -571,7 +570,7 @@ func (c *Conn) VerifyResult() VerifyResult {
 }
 
 func (c *Conn) SessionReused() bool {
-	return C.X_SSL_session_reused(c.ssl) == 1
+	return C.SSL_session_reused(c.ssl) == 1
 }
 
 func (c *Conn) GetSession() ([]byte, error) {
@@ -609,13 +608,13 @@ func (c *Conn) setSession(session []byte) error {
 	ptr := (*C.uchar)(&session[0])
 	s := C.d2i_SSL_SESSION(nil, &ptr, C.long(len(session)))
 	if s == nil {
-		return fmt.Errorf("unable to load session: %s", errorFromErrorQueue())
+		return errorFromErrorQueue()
 	}
 	defer C.SSL_SESSION_free(s)
 
 	ret := C.SSL_set_session(c.ssl, s)
 	if ret != 1 {
-		return fmt.Errorf("unable to set session: %s", errorFromErrorQueue())
+		return errorFromErrorQueue()
 	}
 	return nil
 }

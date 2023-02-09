@@ -93,13 +93,16 @@ import "C"
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
+	"unsafe"
 )
 
 func init() {
 	if rc := C.X_shim_init(); rc != 0 {
 		panic(fmt.Errorf("x_shim_init failed with %d", rc))
 	}
+	loadDefaultProvider()
 }
 
 // errorFromErrorQueue needs to run in the same OS thread as the operation
@@ -111,10 +114,25 @@ func errorFromErrorQueue() error {
 		if err == 0 {
 			break
 		}
-		errs = append(errs, fmt.Sprintf("%s:%s:%s",
+		errs = append(errs, fmt.Sprintf("%s::%s",
 			C.GoString(C.ERR_lib_error_string(err)),
-			C.GoString(C.ERR_func_error_string(err)),
 			C.GoString(C.ERR_reason_error_string(err))))
 	}
+	if len(errs) == 0 {
+		return fmt.Errorf("SSL error")
+	}
 	return fmt.Errorf("SSL errors: %s", strings.Join(errs, "\n"))
+}
+
+func nonCopyGoBytes(ptr uintptr, length int) []byte {
+	var slice []byte
+	header := (*reflect.SliceHeader)(unsafe.Pointer(&slice))
+	header.Cap = length
+	header.Len = length
+	header.Data = ptr
+	return slice
+}
+
+func nonCopyCString(data *C.char, size C.int) []byte {
+	return nonCopyGoBytes(uintptr(unsafe.Pointer(data)), int(size))
 }

@@ -189,10 +189,6 @@ func TestGenerateEC(t *testing.T) {
 }
 
 func TestGenerateEd25519(t *testing.T) {
-	if !ed25519_support {
-		t.SkipNow()
-	}
-
 	key, err := GenerateED25519Key()
 	if err != nil {
 		t.Fatal(err)
@@ -205,17 +201,22 @@ func TestGenerateEd25519(t *testing.T) {
 func TestSign(t *testing.T) {
 	key, _ := GenerateRSAKey(1024)
 	data := []byte("the quick brown fox jumps over the lazy dog")
-	_, err := key.SignPKCS1v15(SHA1_Method, data)
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = key.SignPKCS1v15(SHA256_Method, data)
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = key.SignPKCS1v15(SHA512_Method, data)
-	if err != nil {
-		t.Fatal(err)
+	for _, digestName := range []string{"sha1", "sha256", "sha512"} {
+		t.Run(digestName, func(t *testing.T) {
+			t.Parallel()
+			digest, err := GetDigestByName(digestName, false)
+			if err != nil {
+				t.Fatal(err)
+			}
+			result, err := key.SignPKCS1v15(digest, data)
+			if err != nil {
+				t.Fatal(err)
+			}
+			err = key.VerifyPKCS1v15(digest, data, result)
+			if err != nil {
+				t.Fatal(err)
+			}
+		})
 	}
 }
 
@@ -228,48 +229,25 @@ func TestSignEC(t *testing.T) {
 	}
 	data := []byte("the quick brown fox jumps over the lazy dog")
 
-	t.Run("sha1", func(t *testing.T) {
-		t.Parallel()
-		sig, err := key.SignPKCS1v15(SHA1_Method, data)
-		if err != nil {
-			t.Fatal(err)
-		}
-		err = key.VerifyPKCS1v15(SHA1_Method, data, sig)
-		if err != nil {
-			t.Fatal(err)
-		}
-	})
-
-	t.Run("sha256", func(t *testing.T) {
-		t.Parallel()
-		sig, err := key.SignPKCS1v15(SHA256_Method, data)
-		if err != nil {
-			t.Fatal(err)
-		}
-		err = key.VerifyPKCS1v15(SHA256_Method, data, sig)
-		if err != nil {
-			t.Fatal(err)
-		}
-	})
-
-	t.Run("sha512", func(t *testing.T) {
-		t.Parallel()
-		sig, err := key.SignPKCS1v15(SHA512_Method, data)
-		if err != nil {
-			t.Fatal(err)
-		}
-		err = key.VerifyPKCS1v15(SHA512_Method, data, sig)
-		if err != nil {
-			t.Fatal(err)
-		}
-	})
+	for _, digestName := range []string{"sha1", "sha256", "sha512"} {
+		t.Run(digestName, func(t *testing.T) {
+			t.Parallel()
+			digest, err := GetDigestByName(digestName, false)
+			if err != nil {
+				t.Fatal(err)
+			}
+			sig, err := key.SignPKCS1v15(digest, data)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err = key.VerifyPKCS1v15(digest, data, sig); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
 }
 
 func TestSignED25519(t *testing.T) {
-	if !ed25519_support {
-		t.SkipNow()
-	}
-
 	t.Parallel()
 
 	key, err := GenerateED25519Key()
@@ -278,19 +256,15 @@ func TestSignED25519(t *testing.T) {
 	}
 	data := []byte("the quick brown fox jumps over the lazy dog")
 
-	t.Run("new", func(t *testing.T) {
-		t.Parallel()
-		sig, err := key.SignPKCS1v15(nil, data)
-		if err != nil {
-			t.Fatal(err)
-		}
+	sig, err := key.SignPKCS1v15(nil, data)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-		err = key.VerifyPKCS1v15(nil, data, sig)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-	})
+	err = key.VerifyPKCS1v15(nil, data, sig)
+	if err != nil {
+		t.Fatal(err)
+	}
 }
 
 func TestMarshalEC(t *testing.T) {
@@ -410,10 +384,6 @@ func TestMarshalEC(t *testing.T) {
 }
 
 func TestMarshalEd25519(t *testing.T) {
-	if !ed25519_support {
-		t.SkipNow()
-	}
-
 	if _, err := LoadPrivateKeyFromPEM(ed25519KeyBytes); err != nil {
 		t.Fatal(err)
 	}

@@ -16,42 +16,46 @@ package openssl
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
-	"strings"
 	"testing"
 )
 
-func expectError(t *testing.T, err error, msg string) {
+func expectError(t *testing.T, err error, expErr error) {
 	if err == nil {
-		t.Fatalf("Expected error containing %#v, but got none", msg)
+		t.Fatalf("Expected error %s, but got none", expErr)
 	}
-	if !strings.Contains(err.Error(), msg) {
-		t.Fatalf("Expected error containing %#v, but got %s", msg, err)
+	if !errors.Is(err, expErr) {
+		t.Fatalf("Expected error %s, but got %s", expErr, err)
 	}
 }
 
 func TestBadInputs(t *testing.T) {
-	_, err := NewGCMEncryptionCipherCtx(256, nil,
-		[]byte("abcdefghijklmnopqrstuvwxyz"), nil)
-	expectError(t, err, "bad key size")
-	_, err = NewGCMEncryptionCipherCtx(128, nil,
-		[]byte("abcdefghijklmnopqrstuvwxyz"), nil)
-	expectError(t, err, "bad key size")
-	_, err = NewGCMEncryptionCipherCtx(200, nil,
-		[]byte("abcdefghijklmnopqrstuvwxy"), nil)
-	expectError(t, err, "unknown block size")
-	c, err := GetCipherByName("AES-128-CBC")
-	if err != nil {
-		t.Fatal("Could not look up AES-128-CBC")
-	}
-	_, err = NewEncryptionCipherCtx(c, nil, []byte("abcdefghijklmnop"),
-		[]byte("abc"))
-	expectError(t, err, "bad IV size")
+	t.Run("GCM 256 invalid key", func(t *testing.T) {
+		_, err := NewGCMEncryptionCipherJob(256, []byte("abcdefghijklmnopqrstuvwxyz"), nil)
+		expectError(t, err, ErrInvalidKeyLength)
+	})
+	t.Run("GCM 128 invalid key", func(t *testing.T) {
+		_, err := NewGCMEncryptionCipherJob(128, []byte("abcdefghijklmnopqrstuvwxyz"), nil)
+		expectError(t, err, ErrInvalidKeyLength)
+	})
+	t.Run("GCM invalid block size", func(t *testing.T) {
+		_, err := NewGCMEncryptionCipherJob(200, []byte("abcdefghijklmnopqrstuvwxy"), nil)
+		expectError(t, err, ErrCipherInvalidBlockSize)
+	})
+	t.Run("invalid IV for cipher", func(t *testing.T) {
+		c, err := GetCipherByName("AES-128-CBC", false)
+		if err != nil {
+			t.Fatal("Could not look up AES-128-CBC")
+		}
+		_, err = NewCipherJob(c, []byte("abcdefghijklmnop"), []byte("abc"), true)
+		expectError(t, err, ErrInvalidIVLength)
+	})
 }
 
 func doEncryption(key, iv, aad, plaintext []byte, blocksize, bufsize int) (
 	ciphertext, tag []byte, err error) {
-	ectx, err := NewGCMEncryptionCipherCtx(blocksize, nil, key, iv)
+	ectx, err := NewGCMEncryptionCipherJob(blocksize, key, iv)
 	if err != nil {
 		return nil, nil, fmt.Errorf("Failed making GCM encryption ctx: %s", err)
 	}
@@ -63,14 +67,14 @@ func doEncryption(key, iv, aad, plaintext []byte, blocksize, bufsize int) (
 	plainb := bytes.NewBuffer(plaintext)
 	cipherb := new(bytes.Buffer)
 	for plainb.Len() > 0 {
-		moar, err := ectx.EncryptUpdate(plainb.Next(bufsize))
+		moar, err := ectx.Update(plainb.Next(bufsize))
 		if err != nil {
 			return nil, nil, fmt.Errorf("Failed to perform an encryption: %s",
 				err)
 		}
 		cipherb.Write(moar)
 	}
-	moar, err := ectx.EncryptFinal()
+	moar, err := ectx.Final()
 	if err != nil {
 		return nil, nil, fmt.Errorf("Failed to finalize encryption: %s", err)
 	}
@@ -84,7 +88,7 @@ func doEncryption(key, iv, aad, plaintext []byte, blocksize, bufsize int) (
 
 func doDecryption(key, iv, aad, ciphertext, tag []byte, blocksize,
 	bufsize int) (plaintext []byte, err error) {
-	dctx, err := NewGCMDecryptionCipherCtx(blocksize, nil, key, iv)
+	dctx, err := NewGCMDecryptionCipherCtx(blocksize, key, iv)
 	if err != nil {
 		return nil, fmt.Errorf("Failed making GCM decryption ctx: %s", err)
 	}
@@ -98,7 +102,7 @@ func doDecryption(key, iv, aad, ciphertext, tag []byte, blocksize,
 	plainb := new(bytes.Buffer)
 	cipherb := bytes.NewBuffer(ciphertext)
 	for cipherb.Len() > 0 {
-		moar, err := dctx.DecryptUpdate(cipherb.Next(bufsize))
+		moar, err := dctx.Update(cipherb.Next(bufsize))
 		if err != nil {
 			return nil, fmt.Errorf("Failed to perform a decryption: %s", err)
 		}
@@ -108,7 +112,7 @@ func doDecryption(key, iv, aad, ciphertext, tag []byte, blocksize,
 	if err != nil {
 		return nil, fmt.Errorf("Failed to set expected GCM tag: %s", err)
 	}
-	moar, err := dctx.DecryptFinal()
+	moar, err := dctx.Final()
 	if err != nil {
 		return nil, fmt.Errorf("Failed to finalize decryption: %s", err)
 	}
@@ -126,7 +130,7 @@ func checkEqual(t *testing.T, output []byte, original string) {
 func TestGCM(t *testing.T) {
 	aad := []byte("foo bar baz")
 	key := []byte("nobody can guess this i'm sure..") // len=32
-	iv := []byte("just a bunch of bytes")
+	iv := []byte("a bunch of bytes")
 	plaintext := "Long long ago, in a land far away..."
 
 	blocksizes_to_test := []int{256, 192, 128}
@@ -140,18 +144,20 @@ func TestGCM(t *testing.T) {
 	}
 
 	for _, bsize := range blocksizes_to_test {
-		subkey := key[:bsize/8]
-		ciphertext, tag, err := doEncryption(subkey, iv, aad, []byte(plaintext),
-			bsize, bufsize)
-		if err != nil {
-			t.Fatalf("Encryption with b=%d: %s", bsize, err)
-		}
-		plaintext_out, err := doDecryption(subkey, iv, aad, ciphertext, tag,
-			bsize, bufsize)
-		if err != nil {
-			t.Fatalf("Decryption with b=%d: %s", bsize, err)
-		}
-		checkEqual(t, plaintext_out, plaintext)
+		t.Run(fmt.Sprintf("AES-%d-GCM", bsize), func(t *testing.T) {
+			subkey := key[:bsize/8]
+			ciphertext, tag, err := doEncryption(subkey, iv, aad, []byte(plaintext),
+				bsize, bufsize)
+			if err != nil {
+				t.Fatalf("Encryption with b=%d: %s", bsize, err)
+			}
+			plaintext_out, err := doDecryption(subkey, iv, aad, ciphertext, tag,
+				bsize, bufsize)
+			if err != nil {
+				t.Fatalf("Decryption with b=%d: %s", bsize, err)
+			}
+			checkEqual(t, plaintext_out, plaintext)
+		})
 	}
 }
 
@@ -253,50 +259,65 @@ func TestNonAuthenticatedEncryption(t *testing.T) {
 	plaintext1 := "n, never gonna run around"
 	plaintext2 := " and desert you"
 
-	cipher, err := GetCipherByName("aes-256-cbc")
+	cipher, err := GetCipherByName("aes-256-cbc", false)
 	if err != nil {
 		t.Fatal("Could not get cipher: ", err)
 	}
 
-	eCtx, err := NewEncryptionCipherCtx(cipher, nil, key, iv)
+	eCtx, err := NewCipherJob(cipher, key, iv, true)
 	if err != nil {
 		t.Fatal("Could not create encryption context: ", err)
 	}
-	cipherbytes, err := eCtx.EncryptUpdate([]byte(plaintext1))
+	cipherbytes, err := eCtx.Update([]byte(plaintext1))
 	if err != nil {
 		t.Fatal("EncryptUpdate(plaintext1) failure: ", err)
 	}
 	ciphertext := string(cipherbytes)
-	cipherbytes, err = eCtx.EncryptUpdate([]byte(plaintext2))
+	cipherbytes, err = eCtx.Update([]byte(plaintext2))
 	if err != nil {
 		t.Fatal("EncryptUpdate(plaintext2) failure: ", err)
 	}
 	ciphertext += string(cipherbytes)
-	cipherbytes, err = eCtx.EncryptFinal()
+	cipherbytes, err = eCtx.Final()
 	if err != nil {
 		t.Fatal("EncryptFinal() failure: ", err)
 	}
 	ciphertext += string(cipherbytes)
 
-	dCtx, err := NewDecryptionCipherCtx(cipher, nil, key, iv)
+	dCtx, err := NewCipherJob(cipher, key, iv, false)
 	if err != nil {
 		t.Fatal("Could not create decryption context: ", err)
 	}
-	plainbytes, err := dCtx.DecryptUpdate([]byte(ciphertext[:15]))
+	plainbytes, err := dCtx.Update([]byte(ciphertext[:15]))
 	if err != nil {
 		t.Fatal("DecryptUpdate(ciphertext part 1) failure: ", err)
 	}
 	plainOutput := string(plainbytes)
-	plainbytes, err = dCtx.DecryptUpdate([]byte(ciphertext[15:]))
+	plainbytes, err = dCtx.Update([]byte(ciphertext[15:]))
 	if err != nil {
 		t.Fatal("DecryptUpdate(ciphertext part 2) failure: ", err)
 	}
 	plainOutput += string(plainbytes)
-	plainbytes, err = dCtx.DecryptFinal()
+	plainbytes, err = dCtx.Final()
 	if err != nil {
 		t.Fatal("DecryptFinal() failure: ", err)
 	}
 	plainOutput += string(plainbytes)
 
 	checkEqual(t, []byte(plainOutput), plaintext1+plaintext2)
+}
+
+func TestCipherJobGetCipher(t *testing.T) {
+	cipher, err := GetCipherByName("aes-256-cbc", false)
+	if err != nil {
+		t.Fatal("Could not get cipher: ", err)
+	}
+	job, err := NewCipherJob(cipher, []byte("12345678123456781234567812345678"), nil, true)
+	if err != nil {
+		t.Fatal("Could not create cipher job: ", err)
+	}
+	fetchedCipher := job.Cipher()
+	if fetchedCipher.name != "AES-256-CBC" {
+		t.Fatalf("Got invalid cipher name: %s", fetchedCipher.name)
+	}
 }
