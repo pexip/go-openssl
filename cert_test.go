@@ -204,3 +204,17 @@ func TestCertGetFingerprint(t *testing.T) {
 		t.Fatal("Invalid fingerprint")
 	}
 }
+
+func TestGenerateRandomSerial(t *testing.T) {
+	s1, err := GenerateRandomSerial()
+	if err != nil {
+		t.Fatal(err)
+	}
+	s2, err := GenerateRandomSerial()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s1.Cmp(&s2) == 0 {
+		t.Fatal("Got duplicate serial")
+	}
+}

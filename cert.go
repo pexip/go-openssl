@@ -18,7 +18,9 @@ package openssl
 import "C"
 
 import (
+	"crypto/rand"
 	"errors"
+	"fmt"
 	"io"
 	"math/big"
 	"runtime"
@@ -463,4 +465,16 @@ func (c *Certificate) ComputeFingerprint(digest *Digest) ([]byte, error) {
 		return nil, errors.New("failed to compute fingerprint")
 	}
 	return buf[:dataLength], nil
+}
+
+// GenerateRandomSerial generates a random serial number
+func GenerateRandomSerial() (serial big.Int, err error) {
+	bytes := make([]byte, 20)
+	_, err = rand.Read(bytes)
+	if err != nil {
+		err = fmt.Errorf("failed to generate random serial: %w", err)
+		return
+	}
+	serial.SetBytes(bytes)
+	return
 }
