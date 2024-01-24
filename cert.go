@@ -267,7 +267,7 @@ func (c *Certificate) SetPubKey(pubKey PublicKey) error {
 // Accepted digest names are 'sha256', 'sha384', and 'sha512'.
 func (c *Certificate) Sign(privKey PrivateKey, digest EVP_MD) error {
 	switch privKey.KeyType() {
-	// These digests do not support digests, so set to null
+	// These key types do not support digests, so set to null
 	case KeyTypeED25519, KeyTypeED448:
 		digest = EVP_NULL
 	default:
