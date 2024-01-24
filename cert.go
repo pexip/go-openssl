@@ -334,11 +334,11 @@ func (c *Certificate) AddExtension(nid NID, value string) error {
 	defer C.free(unsafe.Pointer(cvalue))
 	ex := C.X509V3_EXT_conf_nid(nil, &ctx, C.int(nid), cvalue)
 	if ex == nil {
-		return errors.New("failed to create x509v3 extension")
+		return fmt.Errorf("failed to create x509v3 extension: %w", errorFromErrorQueue())
 	}
 	defer C.X509_EXTENSION_free(ex)
 	if C.X509_add_ext(c.x, ex, -1) <= 0 {
-		return errors.New("failed to add x509v3 extension")
+		return fmt.Errorf("failed to add x509v3 extension: %w", errorFromErrorQueue())
 	}
 	return nil
 }
