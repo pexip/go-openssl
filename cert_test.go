@@ -43,6 +43,28 @@ func TestCertGenerate(t *testing.T) {
 	}
 }
 
+func TestCertGenerateED25519(t *testing.T) {
+	key, err := GenerateED25519Key()
+	if err != nil {
+		t.Fatal(err)
+	}
+	info := &CertificateInfo{
+		Serial:       big.NewInt(int64(1)),
+		Issued:       0,
+		Expires:      24 * time.Hour,
+		Country:      "US",
+		Organization: "Test",
+		CommonName:   "localhost",
+	}
+	cert, err := NewCertificate(info, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := cert.Sign(key, EVP_SHA256); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestCAGenerate(t *testing.T) {
 	cakey, err := GenerateRSAKey(768)
 	if err != nil {
