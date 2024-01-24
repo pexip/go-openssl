@@ -8,6 +8,10 @@ const unsigned char *get_extension(X509 *x, int NID, int *data_len) {
 	int tag, xclass;
 
 	loc = X509_get_ext_by_NID(x, NID, -1);
+	if (loc == -1) {
+		*data_len = -1;
+		return NULL;
+	}
 	X509_EXTENSION *ex = X509_get_ext(x, loc);
 	octet_str = X509_EXTENSION_get_data(ex);
 	*data_len = octet_str->length;

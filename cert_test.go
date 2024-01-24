@@ -43,6 +43,28 @@ func TestCertGenerate(t *testing.T) {
 	}
 }
 
+func TestCertGenerateED25519(t *testing.T) {
+	key, err := GenerateED25519Key()
+	if err != nil {
+		t.Fatal(err)
+	}
+	info := &CertificateInfo{
+		Serial:       big.NewInt(int64(1)),
+		Issued:       0,
+		Expires:      24 * time.Hour,
+		Country:      "US",
+		Organization: "Test",
+		CommonName:   "localhost",
+	}
+	cert, err := NewCertificate(info, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := cert.Sign(key, EVP_SHA256); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestCAGenerate(t *testing.T) {
 	cakey, err := GenerateRSAKey(768)
 	if err != nil {
@@ -180,5 +202,19 @@ func TestCertGetFingerprint(t *testing.T) {
 	expected := []byte{0xB6, 0x7B, 0xF8, 0x11, 0x69, 0x86, 0x40, 0x4C, 0x17, 0x87, 0x70, 0x98, 0xA2, 0x99, 0x2A, 0x30, 0xB7, 0x7D, 0x0B, 0x6F, 0x3B, 0x5F, 0x53, 0x13, 0x40, 0xAF, 0xA2, 0x78, 0x04, 0x95, 0x5A, 0x69}
 	if !bytes.Equal(fingerprint, expected) {
 		t.Fatal("Invalid fingerprint")
+	}
+}
+
+func TestGenerateRandomSerial(t *testing.T) {
+	s1, err := GenerateRandomSerial()
+	if err != nil {
+		t.Fatal(err)
+	}
+	s2, err := GenerateRandomSerial()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s1.Cmp(&s2) == 0 {
+		t.Fatal("Got duplicate serial")
 	}
 }

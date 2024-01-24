@@ -18,7 +18,9 @@ package openssl
 import "C"
 
 import (
+	"crypto/rand"
 	"errors"
+	"fmt"
 	"io"
 	"math/big"
 	"runtime"
@@ -264,13 +266,19 @@ func (c *Certificate) SetPubKey(pubKey PublicKey) error {
 // Sign a certificate using a private key and a digest name.
 // Accepted digest names are 'sha256', 'sha384', and 'sha512'.
 func (c *Certificate) Sign(privKey PrivateKey, digest EVP_MD) error {
-	switch digest {
-	case EVP_SHA256:
-	case EVP_SHA384:
-	case EVP_SHA512:
+	switch privKey.KeyType() {
+	// These key types do not support digests, so set to null
+	case KeyTypeED25519, KeyTypeED448:
+		digest = EVP_NULL
 	default:
-		return errors.New("unsupported digest; " +
-			"you're probably looking for 'EVP_SHA256' or 'EVP_SHA512'")
+		switch digest {
+		case EVP_SHA256:
+		case EVP_SHA384:
+		case EVP_SHA512:
+		default:
+			return errors.New("unsupported digest; " +
+				"you're probably looking for 'EVP_SHA256' or 'EVP_SHA512'")
+		}
 	}
 	return c.insecureSign(privKey, digest)
 }
@@ -278,7 +286,7 @@ func (c *Certificate) Sign(privKey PrivateKey, digest EVP_MD) error {
 func (c *Certificate) insecureSign(privKey PrivateKey, digest EVP_MD) error {
 	var md *C.EVP_MD = getDigestFunction(digest)
 	if C.X509_sign(c.x, privKey.evpPKey(), md) <= 0 {
-		return errors.New("failed to sign certificate")
+		return errorFromErrorQueue()
 	}
 	return nil
 }
@@ -326,11 +334,11 @@ func (c *Certificate) AddExtension(nid NID, value string) error {
 	defer C.free(unsafe.Pointer(cvalue))
 	ex := C.X509V3_EXT_conf_nid(nil, &ctx, C.int(nid), cvalue)
 	if ex == nil {
-		return errors.New("failed to create x509v3 extension")
+		return fmt.Errorf("failed to create x509v3 extension: %w", errorFromErrorQueue())
 	}
 	defer C.X509_EXTENSION_free(ex)
 	if C.X509_add_ext(c.x, ex, -1) <= 0 {
-		return errors.New("failed to add x509v3 extension")
+		return fmt.Errorf("failed to add x509v3 extension: %w", errorFromErrorQueue())
 	}
 	return nil
 }
@@ -444,6 +452,9 @@ func (c *Certificate) SetVersion(version X509_Version) error {
 func (c *Certificate) GetExtensionValue(nid NID) []byte {
 	dataLength := C.int(0)
 	val := C.get_extension(c.x, C.int(nid), &dataLength)
+	if dataLength == -1 {
+		return []byte{}
+	}
 	return C.GoBytes(unsafe.Pointer(val), dataLength)
 }
 
@@ -457,4 +468,16 @@ func (c *Certificate) ComputeFingerprint(digest *Digest) ([]byte, error) {
 		return nil, errors.New("failed to compute fingerprint")
 	}
 	return buf[:dataLength], nil
+}
+
+// GenerateRandomSerial generates a random serial number
+func GenerateRandomSerial() (serial big.Int, err error) {
+	bytes := make([]byte, 20)
+	_, err = rand.Read(bytes)
+	if err != nil {
+		err = fmt.Errorf("failed to generate random serial: %w", err)
+		return
+	}
+	serial.SetBytes(bytes)
+	return
 }
