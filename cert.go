@@ -452,6 +452,9 @@ func (c *Certificate) SetVersion(version X509_Version) error {
 func (c *Certificate) GetExtensionValue(nid NID) []byte {
 	dataLength := C.int(0)
 	val := C.get_extension(c.x, C.int(nid), &dataLength)
+	if dataLength == -1 {
+		return []byte{}
+	}
 	return C.GoBytes(unsafe.Pointer(val), dataLength)
 }
 
