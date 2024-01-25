@@ -210,11 +210,37 @@ func TestGenerateRandomSerial(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	if s1.BitLen() >= 160 {
+		t.Fatal("bitlen too long")
+	}
+
 	s2, err := GenerateRandomSerial()
 	if err != nil {
 		t.Fatal(err)
 	}
 	if s1.Cmp(&s2) == 0 {
 		t.Fatal("Got duplicate serial")
+	}
+}
+
+func TestCertSetSerialTooBig(t *testing.T) {
+	key, err := GenerateRSAKey(768)
+	if err != nil {
+		t.Fatal(err)
+	}
+	serial := big.NewInt(0)
+	serial.SetBytes([]byte{0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF})
+	info := &CertificateInfo{
+		Serial:       serial,
+		Issued:       0,
+		Expires:      24 * time.Hour,
+		Country:      "US",
+		Organization: "Test",
+		CommonName:   "localhost",
+	}
+	_, err = NewCertificate(info, key)
+	if err == nil {
+		t.Fatal("should have raised error")
 	}
 }

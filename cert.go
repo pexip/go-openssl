@@ -221,15 +221,18 @@ func (c *Certificate) SetSerial(serial *big.Int) error {
 	bn := C.BN_new()
 	defer C.BN_free(bn)
 
+	if serial.BitLen() >= 160 {
+		return fmt.Errorf("serial number too long (%d >= 160)", serial.BitLen())
+	}
 	serialBytes := serial.Bytes()
 	if bn = C.BN_bin2bn((*C.uchar)(unsafe.Pointer(&serialBytes[0])), C.int(len(serialBytes)), bn); bn == nil {
-		return errors.New("failed to set serial")
+		return fmt.Errorf("failed to set serial: %w", errorFromErrorQueue())
 	}
 	if sno = C.BN_to_ASN1_INTEGER(bn, sno); sno == nil {
-		return errors.New("failed to set serial")
+		return fmt.Errorf("failed to set serial: %w", errorFromErrorQueue())
 	}
 	if C.X509_set_serialNumber(c.x, sno) != 1 {
-		return errors.New("failed to set serial")
+		return fmt.Errorf("failed to set serial: %w", errorFromErrorQueue())
 	}
 	return nil
 }
@@ -479,5 +482,7 @@ func GenerateRandomSerial() (serial big.Int, err error) {
 		return
 	}
 	serial.SetBytes(bytes)
+	// Serial number is 160 bits and must be a positive int (therefore leading bit is 0)
+	serial = *serial.Rsh(&serial, 1)
 	return
 }
