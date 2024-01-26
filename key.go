@@ -22,6 +22,7 @@ import "C"
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"runtime"
 	"unsafe"
@@ -421,17 +422,17 @@ func (p *pkeyCtx) SetRSAKeygenBits(bits int) error {
 func (p *pkeyCtx) SetRSAKeygenPubExp(exponent int) error {
 	exponentBn, err := newBignumFromInt(exponent)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed creating RSA public exponent BN: %w", err)
 	}
 	if int(C.EVP_PKEY_CTX_set1_rsa_keygen_pubexp(p.ctx, exponentBn.bn)) != 1 {
-		return errorFromErrorQueue()
+		return fmt.Errorf("failed setting RSA keygen public exponent: %w", err)
 	}
 	return nil
 }
 func (p *pkeyCtx) generate() (PrivateKey, error) {
 	var key *C.EVP_PKEY
 	if int(C.EVP_PKEY_generate(p.ctx, &key)) != 1 {
-		return nil, errorFromErrorQueue()
+		return nil, fmt.Errorf("failing generating PrivateKey: %w", errorFromErrorQueue())
 	}
 	return pKeyFromKey(key), nil
 }
