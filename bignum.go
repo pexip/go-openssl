@@ -7,6 +7,7 @@ import "C"
 import "C"
 import (
 	"errors"
+	"fmt"
 	"runtime"
 )
 
@@ -41,7 +42,7 @@ func newBignumFromInt(n int) (*Bignum, error) {
 
 func (b *Bignum) SetValue(v int) error {
 	if int(C.BN_set_word(b.bn, (C.BN_ULONG)(v))) != 1 {
-		return errorFromErrorQueue()
+		return fmt.Errorf("failed setting bignum value: %w", errorFromErrorQueue())
 	}
 	return nil
 }
