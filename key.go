@@ -425,7 +425,7 @@ func (p *pkeyCtx) SetRSAKeygenPubExp(exponent int) error {
 		return fmt.Errorf("failed creating RSA public exponent BN: %w", err)
 	}
 	if int(C.EVP_PKEY_CTX_set1_rsa_keygen_pubexp(p.ctx, exponentBn.bn)) != 1 {
-		return fmt.Errorf("failed setting RSA keygen public exponent: %w", err)
+		return fmt.Errorf("failed setting RSA keygen public exponent: %w", errorFromErrorQueue())
 	}
 	return nil
 }
