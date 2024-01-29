@@ -414,8 +414,11 @@ func (p *pkeyCtx) evpCtx() *C.EVP_PKEY_CTX {
 }
 
 func (p *pkeyCtx) SetRSAKeygenBits(bits int) error {
+	if err := ensureErrorQueueIsClear(); err != nil {
+		return fmt.Errorf("failed setting RSA keygen bits: %w", err)
+	}
 	if int(C.EVP_PKEY_CTX_set_rsa_keygen_bits(p.ctx, C.int(bits))) != 1 {
-		return errorFromErrorQueue()
+		return fmt.Errorf("failed setting RSA keygen bits: %w", errorFromErrorQueue())
 	}
 	return nil
 }
@@ -424,12 +427,18 @@ func (p *pkeyCtx) SetRSAKeygenPubExp(exponent int) error {
 	if err != nil {
 		return fmt.Errorf("failed creating RSA public exponent BN: %w", err)
 	}
+	if err := ensureErrorQueueIsClear(); err != nil {
+		return fmt.Errorf("failed setting RSA keygen public exponent: %w", err)
+	}
 	if int(C.EVP_PKEY_CTX_set1_rsa_keygen_pubexp(p.ctx, exponentBn.bn)) != 1 {
 		return fmt.Errorf("failed setting RSA keygen public exponent: %w", errorFromErrorQueue())
 	}
 	return nil
 }
 func (p *pkeyCtx) generate() (PrivateKey, error) {
+	if err := ensureErrorQueueIsClear(); err != nil {
+		return nil, fmt.Errorf("failed generating PrivateKey: %w", err)
+	}
 	var key *C.EVP_PKEY
 	if int(C.EVP_PKEY_generate(p.ctx, &key)) != 1 {
 		return nil, fmt.Errorf("failing generating PrivateKey: %w", errorFromErrorQueue())
@@ -438,8 +447,11 @@ func (p *pkeyCtx) generate() (PrivateKey, error) {
 }
 
 func (p *pkeyParamGenCtx) SetECParamGenCurveNID(curve EllipticCurve) error {
+	if err := ensureErrorQueueIsClear(); err != nil {
+		return fmt.Errorf("failed setting EC paramgen curve NID: %w", err)
+	}
 	if int(C.EVP_PKEY_CTX_set_ec_paramgen_curve_nid(p.ctx, C.int(curve))) != 1 {
-		return errorFromErrorQueue()
+		return fmt.Errorf("failed setting EC paramgen curve NID: %w", errorFromErrorQueue())
 	}
 	return nil
 }
@@ -452,26 +464,35 @@ func (p *pkeyGenCtx) Generate() (PrivateKey, error) {
 }
 
 func (p *pkeyDeriveCtx) SetPeer(peer PublicKey) error {
+	if err := ensureErrorQueueIsClear(); err != nil {
+		return fmt.Errorf("failed setting derive peer: %w", err)
+	}
 	if int(C.EVP_PKEY_derive_set_peer(p.ctx, peer.evpPKey())) != 1 {
-		return errorFromErrorQueue()
+		return fmt.Errorf("failed setting derive peer: %w", errorFromErrorQueue())
 	}
 	return nil
 }
 func (p *pkeyDeriveCtx) Derive() ([]byte, error) {
+	if err := ensureErrorQueueIsClear(); err != nil {
+		return nil, fmt.Errorf("failed deriving: %w", err)
+	}
 	var bufferLen C.size_t
 	if int(C.EVP_PKEY_derive(p.ctx, nil, &bufferLen)) != 1 {
-		return nil, errorFromErrorQueue()
+		return nil, fmt.Errorf("failed deriving: %w", errorFromErrorQueue())
 	}
 	buffer := make([]byte, bufferLen)
 	if int(C.EVP_PKEY_derive(
 		p.ctx, (*C.uchar)(unsafe.Pointer(&buffer[0])), &bufferLen),
 	) != 1 {
-		return nil, errorFromErrorQueue()
+		return nil, fmt.Errorf("failed deriving: %w", errorFromErrorQueue())
 	}
 	return buffer[:bufferLen], nil
 }
 
 func newPKeyContextFromKey(key PrivateKey) (*pkeyCtx, error) {
+	if err := ensureErrorQueueIsClear(); err != nil {
+		return nil, fmt.Errorf("failed creating new pKeyContext from key: %w", err)
+	}
 	ctx := C.EVP_PKEY_CTX_new(key.evpPKey(), nil)
 	if ctx == nil {
 		return nil, errors.New("failed to create pKeyCtx")
@@ -479,6 +500,9 @@ func newPKeyContextFromKey(key PrivateKey) (*pkeyCtx, error) {
 	return &pkeyCtx{ctx, key.KeyType()}, nil
 }
 func newPKeyContextFromKeyType(keyType KeyType) (*pkeyCtx, error) {
+	if err := ensureErrorQueueIsClear(); err != nil {
+		return nil, fmt.Errorf("failed creating new pKeyContext from type: %w", err)
+	}
 	ctx := C.EVP_PKEY_CTX_new_id(C.int(keyType), nil)
 	if ctx == nil {
 		return nil, errors.New("failed to create pKeyCtx")
@@ -498,8 +522,11 @@ func NewPKeyGenerationContextFromKey(key PrivateKey) (PrivateKeyGenerationContex
 	if err != nil {
 		return nil, err
 	}
+	if err := ensureErrorQueueIsClear(); err != nil {
+		return nil, fmt.Errorf("failed initialise keygen: %w", err)
+	}
 	if int(C.EVP_PKEY_keygen_init(ctx.evpCtx())) != 1 {
-		return nil, errorFromErrorQueue()
+		return nil, fmt.Errorf("failed initialise keygen: %w", errorFromErrorQueue())
 	}
 	return &pkeyGenCtx{*ctx}, nil
 }
@@ -508,8 +535,11 @@ func NewPKeyGenerationContextFromKeyType(keyType KeyType) (PrivateKeyGenerationC
 	if err != nil {
 		return nil, err
 	}
+	if err := ensureErrorQueueIsClear(); err != nil {
+		return nil, fmt.Errorf("failed initialise keygen: %w", err)
+	}
 	if int(C.EVP_PKEY_keygen_init(ctx.evpCtx())) != 1 {
-		return nil, errorFromErrorQueue()
+		return nil, fmt.Errorf("failed initialise keygen: %w", errorFromErrorQueue())
 	}
 	return &pkeyGenCtx{*ctx}, nil
 }
@@ -519,8 +549,11 @@ func NewPKeyParamGenerationCtx(keyID KeyType) (PrivateKeyParamGenerationContext,
 	if err != nil {
 		return nil, err
 	}
+	if err := ensureErrorQueueIsClear(); err != nil {
+		return nil, fmt.Errorf("failed initialise paramgen: %w", err)
+	}
 	if int(C.EVP_PKEY_paramgen_init(ctx.evpCtx())) != 1 {
-		return nil, errorFromErrorQueue()
+		return nil, fmt.Errorf("failed initialise paramgen: %w", errorFromErrorQueue())
 	}
 	return &pkeyParamGenCtx{*ctx}, nil
 }
@@ -530,8 +563,11 @@ func NewPKeyDeriveContextFromKey(key PrivateKey) (PrivateKeyDeriveContext, error
 	if err != nil {
 		return nil, err
 	}
+	if err := ensureErrorQueueIsClear(); err != nil {
+		return nil, fmt.Errorf("failed initialise derive: %w", err)
+	}
 	if int(C.EVP_PKEY_derive_init(ctx.evpCtx())) != 1 {
-		return nil, errorFromErrorQueue()
+		return nil, fmt.Errorf("failed initialise derive: %w", errorFromErrorQueue())
 	}
 	return &pkeyDeriveCtx{*ctx}, nil
 }
