@@ -108,6 +108,7 @@ func GetCipherByName(algorithm string, allowNonFIPS bool) (*Cipher, error) {
 
 	cipher := C.EVP_CIPHER_fetch(libCtx.ctx, cipherName, nil)
 	if cipher == nil {
+		_ = errorFromErrorQueue() // ensure we pull the error from the queue
 		return nil, ErrUnknownCipher
 	}
 	return &Cipher{algorithm, cipher}, nil
