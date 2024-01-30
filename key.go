@@ -579,6 +579,8 @@ func GenerateRSAKey(bits int) (PrivateKey, error) {
 
 // GenerateRSAKeyWithExponent generates a new RSA private key.
 func GenerateRSAKeyWithExponent(bits int, exponent int) (PrivateKey, error) {
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
 	ctx, err := NewPKeyGenerationContextFromKeyType(KeyTypeRSA)
 	if err != nil {
 		return nil, err
@@ -598,6 +600,8 @@ func GenerateRSAKeyWithExponent(bits int, exponent int) (PrivateKey, error) {
 
 // GenerateECKey generates a new elliptic curve private key on the specified curve.
 func GenerateECKey(curve EllipticCurve) (PrivateKey, error) {
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
 	paramCtx, err := NewPKeyParamGenerationCtx(KeyTypeEC)
 	if err != nil {
 		return nil, err
@@ -623,6 +627,8 @@ func GenerateECKey(curve EllipticCurve) (PrivateKey, error) {
 
 // GenerateED25519Key generates a Ed25519 key
 func GenerateED25519Key() (PrivateKey, error) {
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
 	keyCtx, err := NewPKeyGenerationContextFromKeyType(KeyTypeED25519)
 	if err != nil {
 		return nil, err
