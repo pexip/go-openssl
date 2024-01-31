@@ -91,13 +91,16 @@ func NewName() (*Name, error) {
 
 // AddTextEntry appends a text entry to an X509 NAME.
 func (n *Name) AddTextEntry(field, value string) error {
+	if err := ensureErrorQueueIsClear(); err != nil {
+		return fmt.Errorf("failed to add x509 name text entry: %w", err)
+	}
 	cfield := C.CString(field)
 	defer C.free(unsafe.Pointer(cfield))
 	cvalue := (*C.uchar)(unsafe.Pointer(C.CString(value)))
 	defer C.free(unsafe.Pointer(cvalue))
 	ret := C.X509_NAME_add_entry_by_txt(n.name, cfield, C.MBSTRING_ASC, cvalue, -1, -1, 0)
 	if ret != 1 {
-		return errors.New("failed to add x509 name text entry")
+		return fmt.Errorf("failed to add x509 name text entry: %w", errorFromErrorQueue())
 	}
 	return nil
 }
@@ -208,14 +211,21 @@ func (c *Certificate) SetIssuer(issuer *Certificate) error {
 // SetIssuerName populates the issuer name of a certificate.
 // Use SetIssuer instead, if possible.
 func (c *Certificate) SetIssuerName(name *Name) error {
+	if err := ensureErrorQueueIsClear(); err != nil {
+		return fmt.Errorf("failed to set subject name: %w", err)
+	}
 	if C.X509_set_issuer_name(c.x, name.name) != 1 {
-		return errors.New("failed to set subject name")
+		return fmt.Errorf("failed to set subject name: %w", errorFromErrorQueue())
 	}
 	return nil
 }
 
 // SetSerial sets the serial of a certificate.
 func (c *Certificate) SetSerial(serial *big.Int) error {
+	if err := ensureErrorQueueIsClear(); err != nil {
+		return fmt.Errorf("ailed to set serial: %w", err)
+	}
+
 	sno := C.ASN1_INTEGER_new()
 	defer C.ASN1_INTEGER_free(sno)
 	bn := C.BN_new()
@@ -259,9 +269,12 @@ func (c *Certificate) SetExpireDate(when time.Duration) error {
 
 // SetPubKey assigns a new public key to a certificate.
 func (c *Certificate) SetPubKey(pubKey PublicKey) error {
+	if err := ensureErrorQueueIsClear(); err != nil {
+		return fmt.Errorf("failed to set public key: %w", err)
+	}
 	c.pubKey = pubKey
 	if C.X509_set_pubkey(c.x, pubKey.evpPKey()) != 1 {
-		return errors.New("failed to set public key")
+		return fmt.Errorf("failed to set public key: %w", errorFromErrorQueue())
 	}
 	return nil
 }
@@ -288,8 +301,11 @@ func (c *Certificate) Sign(privKey PrivateKey, digest EVP_MD) error {
 
 func (c *Certificate) insecureSign(privKey PrivateKey, digest EVP_MD) error {
 	var md *C.EVP_MD = getDigestFunction(digest)
+	if err := ensureErrorQueueIsClear(); err != nil {
+		return fmt.Errorf("failed to set public key: %w", err)
+	}
 	if C.X509_sign(c.x, privKey.evpPKey(), md) <= 0 {
-		return errorFromErrorQueue()
+		return fmt.Errorf("failed to sign certificae: %w", errorFromErrorQueue())
 	}
 	return nil
 }
@@ -327,6 +343,9 @@ func getDigestFunction(digest EVP_MD) (md *C.EVP_MD) {
 // AddExtension Add an extension to a certificate.
 // Extension constants are NID_* as found in openssl.
 func (c *Certificate) AddExtension(nid NID, value string) error {
+	if err := ensureErrorQueueIsClear(); err != nil {
+		return fmt.Errorf("failed to create x509v3 extension: %w", err)
+	}
 	issuer := c
 	if c.Issuer != nil {
 		issuer = c.Issuer
@@ -348,10 +367,13 @@ func (c *Certificate) AddExtension(nid NID, value string) error {
 
 // AddCustomExtension add custom extensions to the certificate.
 func (c *Certificate) AddCustomExtension(nid NID, value []byte) error {
+	if err := ensureErrorQueueIsClear(); err != nil {
+		return fmt.Errorf("failed to add custom extension: %w", err)
+	}
 	val := (*C.char)(C.CBytes(value))
 	defer C.free(unsafe.Pointer(val))
-	if int(C.add_custom_ext(c.x, C.int(nid), val, C.int(len(value)))) == 0 {
-		return errors.New("unable to add extension")
+	if C.add_custom_ext(c.x, C.int(nid), val, C.int(len(value))) == 0 {
+		return fmt.Errorf("failed to add custom extension: %w", errorFromErrorQueue())
 	}
 	return nil
 }

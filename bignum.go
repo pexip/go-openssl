@@ -41,6 +41,9 @@ func newBignumFromInt(n int) (*Bignum, error) {
 }
 
 func (b *Bignum) SetValue(v int) error {
+	if err := ensureErrorQueueIsClear(); err != nil {
+		return fmt.Errorf("failed setting bignum value: %w", err)
+	}
 	if int(C.BN_set_word(b.bn, (C.BN_ULONG)(v))) != 1 {
 		return fmt.Errorf("failed setting bignum value: %w", errorFromErrorQueue())
 	}

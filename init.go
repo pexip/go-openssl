@@ -92,10 +92,13 @@ package openssl
 import "C"
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 	"strings"
 	"unsafe"
+
+	"github.com/hashicorp/go-multierror"
 )
 
 func init() {
@@ -105,23 +108,64 @@ func init() {
 	loadDefaultProvider()
 }
 
+func getOneErrorFromQueue() error {
+	var (
+		file     *C.char
+		data     *C.char
+		function *C.char
+		line     C.int
+		flags    C.int
+	)
+	err := C.ERR_get_error_all(&file, &line, &function, &data, &flags)
+	if err == 0 {
+		return nil
+	}
+	return fmt.Errorf(
+		"%s::%s (%s) in %s:%d::%s",
+		C.GoString(C.ERR_lib_error_string(err)),
+		C.GoString(C.ERR_reason_error_string(err)),
+		C.GoString(data),
+		C.GoString(file),
+		line,
+		C.GoString(function),
+	)
+}
+
+func errorFormatFunction(es []error) string {
+	if len(es) == 1 {
+		return fmt.Sprintf("SSL error:\n\t* %s\n\n", es[0])
+	}
+
+	points := make([]string, len(es))
+	for i, err := range es {
+		points[i] = fmt.Sprintf("* %s", err)
+	}
+
+	return fmt.Sprintf("SSL errors:\n\t%s\n\n", strings.Join(points, "\n\t"))
+}
+
+func getQueuedErrors() error {
+	var result *multierror.Error
+	for {
+		err := getOneErrorFromQueue()
+		if err == nil {
+			break
+		}
+		result = multierror.Append(result, err)
+	}
+	if result != nil {
+		result.ErrorFormat = errorFormatFunction
+	}
+	return result.ErrorOrNil()
+}
+
 // errorFromErrorQueue needs to run in the same OS thread as the operation
 // that caused the possible error
 func errorFromErrorQueue() error {
-	var errs []string
-	for {
-		err := C.ERR_get_error()
-		if err == 0 {
-			break
-		}
-		errs = append(errs, fmt.Sprintf("%s::%s",
-			C.GoString(C.ERR_lib_error_string(err)),
-			C.GoString(C.ERR_reason_error_string(err))))
+	if err := getQueuedErrors(); err != nil {
+		return err
 	}
-	if len(errs) == 0 {
-		return fmt.Errorf("SSL error")
-	}
-	return fmt.Errorf("SSL errors: %s", strings.Join(errs, "\n"))
+	return errors.New("ssl error")
 }
 
 func nonCopyGoBytes(ptr uintptr, length int) []byte {
@@ -135,4 +179,12 @@ func nonCopyGoBytes(ptr uintptr, length int) []byte {
 
 func nonCopyCString(data *C.char, size C.int) []byte {
 	return nonCopyGoBytes(uintptr(unsafe.Pointer(data)), int(size))
+}
+
+// ensureErrorQueueIsClear will only return an error if the error queue is not clear
+func ensureErrorQueueIsClear() error {
+	if err := getQueuedErrors(); err != nil {
+		return fmt.Errorf("error queue not clear: %w", err)
+	}
+	return nil
 }

@@ -51,6 +51,9 @@ func TestBadInputs(t *testing.T) {
 		_, err = NewCipherJob(c, []byte("abcdefghijklmnop"), []byte("abc"), true)
 		expectError(t, err, ErrInvalidIVLength)
 	})
+	if err := ensureErrorQueueIsClear(); err != nil {
+		t.Fatalf("Error queue not clear: %s", err)
+	}
 }
 
 func doEncryption(key, iv, aad, plaintext []byte, blocksize, bufsize int) (
