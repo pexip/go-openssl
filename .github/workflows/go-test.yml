@@ -1,8 +1,20 @@
 # File managed by web3-bot. DO NOT EDIT.
 # See https://github.com/protocol/.github/ for details.
 
-on: [push, pull_request]
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+  schedule:
+    # Every day, at 4:27 (arbitrary)
+    - cron: '27 4 * * *'
 name: Go Test
+
+# On PRs, cancel redundant pipelines
+concurrency:
+  group: "${{ github.workflow }}-${{ github.head_ref || github.run_id }}"
+  cancel-in-progress: true
 
 jobs:
   unit:
