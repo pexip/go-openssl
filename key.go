@@ -243,7 +243,9 @@ func (key *pKey) MarshalPKCS1PrivateKeyPEM() (pemBlock []byte, err error) {
 		return nil, errors.New("failed dumping private key")
 	}
 
-	return io.ReadAll(bio.asAnyBio())
+	pemBlock, err = io.ReadAll(bio.asAnyBio())
+	runtime.KeepAlive(bio)
+	return
 }
 
 func (key *pKey) MarshalPKCS1PrivateKeyDER() (derBlock []byte, err error) {
@@ -256,7 +258,9 @@ func (key *pKey) MarshalPKCS1PrivateKeyDER() (derBlock []byte, err error) {
 		return nil, errors.New("failed dumping private key der")
 	}
 
-	return io.ReadAll(bio.asAnyBio())
+	derBlock, err = io.ReadAll(bio.asAnyBio())
+	runtime.KeepAlive(bio)
+	return
 }
 
 func (key *pKey) MarshalPKIXPublicKeyPEM() (pemBlock []byte, err error) {
@@ -269,7 +273,9 @@ func (key *pKey) MarshalPKIXPublicKeyPEM() (pemBlock []byte, err error) {
 		return nil, errors.New("failed dumping public key pem")
 	}
 
-	return io.ReadAll(bio.asAnyBio())
+	pemBlock, err = io.ReadAll(bio.asAnyBio())
+	runtime.KeepAlive(bio)
+	return
 }
 
 func (key *pKey) MarshalPKIXPublicKeyDER() (derBlock []byte, err error) {
@@ -282,7 +288,9 @@ func (key *pKey) MarshalPKIXPublicKeyDER() (derBlock []byte, err error) {
 		return nil, errors.New("failed dumping public key der")
 	}
 
-	return io.ReadAll(bio.asAnyBio())
+	derBlock, err = io.ReadAll(bio.asAnyBio())
+	runtime.KeepAlive(bio)
+	return
 }
 
 // LoadPrivateKeyFromPEM loads a private key from a PEM-encoded block.
@@ -295,6 +303,7 @@ func LoadPrivateKeyFromPEM(pemBlock []byte) (PrivateKey, error) {
 		return nil, err
 	}
 	key := C.PEM_read_bio_PrivateKey(bio.ptr, nil, nil, nil)
+	runtime.KeepAlive(bio)
 	if key == nil {
 		return nil, ErrLoadingKey
 	}
@@ -314,6 +323,7 @@ func LoadPrivateKeyFromPEMWithPassword(pemBlock []byte, password string) (Privat
 	cs := unsafe.Pointer(C.CString(password))
 	defer C.free(cs)
 	key := C.PEM_read_bio_PrivateKey(bio.ptr, nil, nil, cs)
+	runtime.KeepAlive(bio)
 	if key == nil {
 		return nil, ErrLoadingKey
 	}
@@ -332,6 +342,7 @@ func LoadPrivateKeyFromDER(derBlock []byte) (PrivateKey, error) {
 	}
 
 	key := C.d2i_PrivateKey_bio(bio.ptr, nil)
+	runtime.KeepAlive(bio)
 	if key == nil {
 		return nil, ErrLoadingKey
 	}
@@ -350,6 +361,7 @@ func LoadPublicKeyFromPEM(pemBlock []byte) (PublicKey, error) {
 	}
 
 	key := C.PEM_read_bio_PUBKEY(bio.ptr, nil, nil, nil)
+	runtime.KeepAlive(bio)
 	if key == nil {
 		return nil, ErrLoadingKey
 	}
@@ -368,6 +380,7 @@ func LoadPublicKeyFromDER(derBlock []byte) (PublicKey, error) {
 	}
 
 	key := C.d2i_PUBKEY_bio(bio.ptr, nil)
+	runtime.KeepAlive(bio)
 	if key == nil {
 		return nil, ErrLoadingKey
 	}
@@ -433,6 +446,7 @@ func (p *pkeyCtx) SetRSAKeygenPubExp(exponent int) error {
 	if int(C.EVP_PKEY_CTX_set1_rsa_keygen_pubexp(p.ctx, exponentBn.bn)) != 1 {
 		return fmt.Errorf("failed setting RSA keygen public exponent: %w", errorFromErrorQueue())
 	}
+	runtime.KeepAlive(exponentBn)
 	return nil
 }
 func (p *pkeyCtx) generate() (PrivateKey, error) {
