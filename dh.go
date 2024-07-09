@@ -14,11 +14,15 @@
 
 package openssl
 
+import "runtime"
+
 // DeriveSharedSecret derives a shared secret using a private key and a peer's
 // public key.
 // The specific algorithm that is used depends on the types of the
 // keys, but it is most commonly a variant of Diffie-Hellman.
 func DeriveSharedSecret(private PrivateKey, public PublicKey) ([]byte, error) {
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
 	// Create context for the shared secret derivation
 	ctx, err := NewPKeyDeriveContextFromKey(private)
 	if err != nil {
