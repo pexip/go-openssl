@@ -15,6 +15,7 @@
 package openssl
 
 import (
+	"strings"
 	"testing"
 	"time"
 )
@@ -44,5 +45,68 @@ func TestCtxSessCacheSizeOption(t *testing.T) {
 	}
 	if newSize1 != newSize2 {
 		t.Error("SetSessionCacheSize() does not save anything to ctx")
+	}
+}
+
+func TestCtxSetCipherSuites(t *testing.T) {
+	ctx, _ := NewCtx()
+	err := ctx.SetCipherSuites("TLS_AES_128_GCM_SHA256")
+	if err != nil {
+		t.Error("SetCipherSuites() returned unexpected error")
+		return
+	}
+
+	err = ctx.SetCipherSuites("invalid")
+	if err == nil {
+		t.Error("SetCipherSuites() did not return expected error")
+		return
+	}
+
+	if !strings.Contains(err.Error(), "no cipher match") {
+		t.Error("SetCipherSuites() did not return expected error")
+	}
+}
+
+func TestCtxSetGroupsList(t *testing.T) {
+	ctx, _ := NewCtx()
+	err := ctx.SetGroupsList("")
+	if err == nil {
+		t.Error("SetGroupsList() did not return expected error")
+		return
+	}
+
+	if !strings.Contains(err.Error(), "ssl error") {
+		t.Error("SetGroupsList() did not return expected error")
+		return
+	}
+
+	err = ctx.SetGroupsList("P-256:P-384:P-521")
+	if err != nil {
+		t.Error("SetGroupsList() returned unexpected error")
+		return
+	}
+}
+
+func TestCtxSecurityLevel(t *testing.T) {
+	ctx, _ := NewCtx()
+
+	// Security levels are 0 - 5
+	// https://docs.openssl.org/master/man3/SSL_CTX_set_security_level
+	for i := 0; i <= 5; i++ {
+		ctx.SetSecurityLevel(i)
+		secLevel := ctx.GetSecurityLevel()
+		if secLevel != i {
+			t.Errorf("SetSecurityLevel(%d) failed on GetSecurityLevel()", i)
+		}
+	}
+
+	ctx.SetSecurityLevel(-1)
+	if ctx.GetSecurityLevel() == -1 {
+		t.Error("SetSecurityLevel(-1) should not be allowed")
+	}
+
+	ctx.SetSecurityLevel(6)
+	if ctx.GetSecurityLevel() == 6 {
+		t.Error("SetSecurityLevel(6) should not be allowed")
 	}
 }
