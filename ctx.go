@@ -526,11 +526,7 @@ func (c *Ctx) SetGroupsList(list string) error {
 	defer runtime.UnlockOSThread()
 	clist := C.CString(list)
 	defer C.free(unsafe.Pointer(clist))
-	// # define SSL_CTX_set1_groups_list(ctx, s) \
-	//     SSL_CTX_ctrl(ctx,SSL_CTRL_SET_GROUPS_LIST,0,(char *)(s))
-	// # define SSL_CTRL_SET_GROUPS_LIST                92
-	if int(C.SSL_CTX_ctrl(c.ctx, C.int(92), C.long(0),
-		unsafe.Pointer(clist))) != 1 {
+	if int(C.X_SSL_CTX_set1_groups_list(c.ctx, unsafe.Pointer(clist))) != 1 {
 		return errorFromErrorQueue()
 	}
 	return nil

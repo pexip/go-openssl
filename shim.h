@@ -60,6 +60,7 @@ extern long X_SSL_CTX_sess_get_cache_size(SSL_CTX* ctx);
 extern int X_SSL_CTX_set1_curves(SSL_CTX *ctx, int *clist, int clistlen);
 extern long X_SSL_CTX_add_extra_chain_cert(SSL_CTX* ctx, X509 *cert);
 extern long X_SSL_CTX_set_tlsext_servername_callback(SSL_CTX* ctx, int (*cb)(SSL *con, int *ad, void *args));
+extern int X_SSL_CTX_set1_groups_list(SSL_CTX* ctx, void *s);
 
 /* SSL_CTX methods */
 extern int X_SSL_CTX_verify_cb(int ok, X509_STORE_CTX* store);
