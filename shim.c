@@ -199,7 +199,7 @@ int X_SSL_CTX_verify_cb(int ok, X509_STORE_CTX* store) {
 	return go_ssl_ctx_verify_cb_thunk(p, ok, store);
 }
 
-int X_SSL_CTX_set1_groups_list(SSL_CTX *ctx, void *s) {
+int X_SSL_CTX_set1_groups_list(SSL_CTX *ctx, char *s) {
 	return SSL_CTX_set1_groups_list(ctx, s);
 }
 
