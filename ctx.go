@@ -508,6 +508,43 @@ func (c *Ctx) SetCipherList(list string) error {
 	return nil
 }
 
+// SetCipherSuites sets the list of available ciphers used for tls1.3.
+func (c *Ctx) SetCipherSuites(list string) error {
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+	clist := C.CString(list)
+	defer C.free(unsafe.Pointer(clist))
+	if int(C.SSL_CTX_set_ciphersuites(c.ctx, clist)) != 1 {
+		return errorFromErrorQueue()
+	}
+	return nil
+}
+
+// SetGroupsList
+func (c *Ctx) SetGroupsList(list string) error {
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+	clist := C.CString(list)
+	defer C.free(unsafe.Pointer(clist))
+	if int(C.X_SSL_CTX_set1_groups_list(c.ctx, (*C.char)(unsafe.Pointer(clist)))) != 1 {
+		return errorFromErrorQueue()
+	}
+	return nil
+}
+
+// SetSecurityLevel sets the context's current security level
+func (c *Ctx) SetSecurityLevel(level int) {
+	if level < 0 || level > 5 {
+		return
+	}
+	C.SSL_CTX_set_security_level(c.ctx, C.int(level))
+}
+
+// GetSecurityLevel returns the context's current security level
+func (c *Ctx) GetSecurityLevel() int {
+	return int(C.SSL_CTX_get_security_level(c.ctx))
+}
+
 // SetNextProtos sets Negotiation protocol to the ctx.
 func (c *Ctx) SetNextProtos(protos []string) error {
 	if len(protos) == 0 {
