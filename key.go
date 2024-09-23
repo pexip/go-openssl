@@ -371,7 +371,7 @@ func LoadPrivateKeyByUri(uri string) (PrivateKey, error) {
 		return nil, ErrLoadingKey
 	}
 
-	key := C.OSSL_STORE_INFO_get1PKEY(info)
+	key := C.OSSL_STORE_INFO_get1_PKEY(info)
 	if key == nil {
 		return nil, ErrLoadingKey
 	}
