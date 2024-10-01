@@ -361,7 +361,7 @@ func LoadPrivateKeyByUri(uri string) (PrivateKey, error) {
 	cstrUri := C.CString(uri)
 	defer C.free(unsafe.Pointer(cstrUri))
 
-	ctx := C.OSSL_STORE_open_ex(C.CString(uri), nil, nil, nil, nil, nil, nil, nil)
+	ctx := C.OSSL_STORE_open_ex(cstrUri, nil, nil, nil, nil, nil, nil, nil)
 	if ctx == nil {
 		return nil, ErrLoadingKey
 	}
