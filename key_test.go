@@ -23,6 +23,7 @@ import (
 	"encoding/hex"
 	pem_pkg "encoding/pem"
 	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -441,6 +442,36 @@ func TestMarshalEd25519(t *testing.T) {
 
 	_, err = loadedPubkeyFromDer.MarshalPKIXPublicKeyDER()
 	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestLoadPrivateKeyByUri(t *testing.T) {
+	tmpDir := os.TempDir()
+	tempPemFilePath := filepath.Join(tmpDir, "test.pem")
+	defer os.RemoveAll(tmpDir)
+
+	err := os.WriteFile(tempPemFilePath, keyBytes, 0600)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	privateKey, err := LoadPrivateKeyByUri(tempPemFilePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	marshalledPrivateKey, err := privateKey.MarshalPKCS1PrivateKeyPEM()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !bytes.Equal(marshalledPrivateKey, keyBytes) {
+		t.Fatalf("private key marshalled: %s, does not match content: %s", marshalledPrivateKey, keyBytes)
+	}
+
+	_, err = LoadPrivateKeyByUri("bogus")
+	if err == nil {
 		t.Fatal(err)
 	}
 }
