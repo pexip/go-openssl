@@ -18,6 +18,7 @@ package openssl
 // #include <openssl/rsa.h>
 // #include <openssl/pem.h>
 // #include <openssl/x509v3.h>
+// #include <openssl/store.h>
 import "C"
 
 import (
@@ -343,6 +344,39 @@ func LoadPrivateKeyFromDER(derBlock []byte) (PrivateKey, error) {
 
 	key := C.d2i_PrivateKey_bio(bio.ptr, nil)
 	runtime.KeepAlive(bio)
+	if key == nil {
+		return nil, ErrLoadingKey
+	}
+
+	return pKeyFromKey(key), nil
+}
+
+// LoadPrivateKeyByUri loads a private key similar to the openssl command.
+// For example, you can pass in "handle:0x81000000"
+//
+// This function is a more simple implementation in load_key_certs_crls that the
+// openssl command line utility uses, so most things that you can pass into the
+// command line utility should work here.
+func LoadPrivateKeyByUri(uri string) (PrivateKey, error) {
+	cstrUri := C.CString(uri)
+	defer C.free(unsafe.Pointer(cstrUri))
+
+	ctx := C.OSSL_STORE_open_ex(cstrUri, nil, nil, nil, nil, nil, nil, nil)
+	if ctx == nil {
+		return nil, ErrLoadingKey
+	}
+
+	info := C.OSSL_STORE_load(ctx)
+	if info == nil {
+		return nil, ErrLoadingKey
+	}
+
+	errorCode := C.OSSL_STORE_error(ctx)
+	if errorCode != 0 {
+		return nil, ErrLoadingKey
+	}
+
+	key := C.OSSL_STORE_INFO_get1_PKEY(info)
 	if key == nil {
 		return nil, ErrLoadingKey
 	}
