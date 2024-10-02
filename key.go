@@ -366,13 +366,13 @@ func LoadPrivateKeyByUri(uri string) (PrivateKey, error) {
 		return nil, ErrLoadingKey
 	}
 
-	errorCode := C.OSSL_STORE_error(ctx)
-	if errorCode != 0 {
+	info := C.OSSL_STORE_load(ctx)
+	if info == nil {
 		return nil, ErrLoadingKey
 	}
 
-	info := C.OSSL_STORE_load(ctx)
-	if info == nil {
+	errorCode := C.OSSL_STORE_error(ctx)
+	if errorCode != 0 {
 		return nil, ErrLoadingKey
 	}
 
