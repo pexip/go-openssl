@@ -447,9 +447,8 @@ func TestMarshalEd25519(t *testing.T) {
 }
 
 func TestLoadPrivateKeyByUri(t *testing.T) {
-	tmpDir := os.TempDir()
+	tmpDir := t.TempDir()
 	tempPemFilePath := filepath.Join(tmpDir, "test.pem")
-	defer os.RemoveAll(tmpDir)
 
 	err := os.WriteFile(tempPemFilePath, keyBytes, 0600)
 	if err != nil {
@@ -474,4 +473,6 @@ func TestLoadPrivateKeyByUri(t *testing.T) {
 	if err == nil {
 		t.Fatal(err)
 	}
+
+	t.Fatal("ben")
 }
